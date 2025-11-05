@@ -1,0 +1,206 @@
+openapi: 3.1.0
+info:
+  title: Fisio API
+  version: 0.1.0
+  description: API para avaliação de exercícios de fisioterapia (frames/keypoints) e resumos de sessão.
+servers:
+  - url: http://localhost:8000
+tags:
+  - name: infer
+    description: Inferência a partir de frame de vídeo ou keypoints 2D.
+  - name: session
+    description: Criação de resumos pós-sessão.
+  - name: health
+    description: Verificação simples de disponibilidade.
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /v1/infer/frame:
+    post:
+      tags: [infer]
+      summary: Avalia um frame (imagem) e retorna métricas do exercício
+      description: >
+        Envie **imagem JPEG/PNG** (ideal 360p/480p). A resposta contém
+        métricas como reps, ROM e mensagens de feedback.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                exercise_id:
+                  type: string
+                  description: Identificador lógico do exercício (ex. knee_extension)
+                session_id:
+                  type: string
+                  description: ID da sessão para correlacionar (opcional)
+      responses:
+        "200":
+          description: Resultado de inferência
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InferResult" }
+              examples:
+                ok:
+                  value:
+                    reps: 3
+                    rom: 52.0
+                    cadence: 2.10
+                    alerts: ["Ótimo alcance!"]
+        "400":
+          description: Erro de entrada inválida
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /v1/infer/keypoints:
+    post:
+      tags: [infer]
+      summary: Avalia sequência de keypoints 2D
+      description: >
+        Envie keypoints 2D normalizados (0–1 ou pixels). Ideal quando a pose é obtida on-device; reduz banda/privacidade.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/KeypointsIn" }
+            examples:
+              demo:
+                value:
+                  fps: 15
+                  normalization: "pixel"
+                  keypoints:
+                    - [[320, 240, 0.98], [300, 210, 0.95], [340, 210, 0.96]]  # frame 0 (exemplo reduzido)
+                    - [[321, 239, 0.98], [301, 211, 0.95], [341, 209, 0.96]]  # frame 1
+                  exercise_id: "knee_extension"
+                  session_id: "sess-123"
+      responses:
+        "200":
+          description: Resultado de inferência
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InferResult" }
+        "400":
+          description: Erro de entrada inválida
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+  /v1/session/summary:
+    post:
+      tags: [session]
+      summary: Salva e retorna o resumo da sessão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionSummaryIn" }
+            examples:
+              ex:
+                value:
+                  user_id: "user-001"
+                  exercise_id: "knee_extension"
+                  session_id: "sess-123"
+                  reps_valid: 28
+                  reps_total: 30
+                  rom_avg: 46.2
+                  rom_peak: 58.5
+                  cadence_avg: 2.25
+                  notes: ["Boa cadência", "ROM abaixo do alvo em 3 reps"]
+      responses:
+        "200":
+          description: Resumo salvo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionSummaryOut" }
+        "400":
+          description: Erro de validação
+          content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } }
+
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+
+    KeypointsIn:
+      type: object
+      properties:
+        keypoints:
+          description: >
+            Lista de frames; cada frame é uma lista de keypoints [x,y,conf].
+            Padrão: ordem do esqueleto (ex.: BlazePose/MoveNet). 
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items:
+                - { type: number }  # x
+                - { type: number }  # y
+                - { type: number }  # conf (0–1)
+        fps:
+          type: number
+          example: 15
+        normalization:
+          type: string
+          enum: ["pixel", "normalized"]
+          default: "pixel"
+        exercise_id:
+          type: string
+        session_id:
+          type: string
+      required: [keypoints]
+
+    InferResult:
+      type: object
+      properties:
+        reps: { type: integer, minimum: 0 }
+        rom:  { type: number, description: "Amplitude (graus) do melhor frame/fase" }
+        cadence:
+          type: number
+          nullable: true
+          description: "Segundos por repetição (média/janela)"
+        alerts:
+          type: array
+          items: { type: string }
+      required: [reps, rom, alerts]
+
+    SessionSummaryIn:
+      type: object
+      properties:
+        user_id:     { type: string }
+        exercise_id: { type: string }
+        session_id:  { type: string }
+        reps_valid:  { type: integer }
+        reps_total:  { type: integer }
+        rom_avg:     { type: number }
+        rom_peak:    { type: number }
+        cadence_avg: { type: number, nullable: true }
+        notes:
+          type: array
+          items: { type: string }
+      required: [user_id, exercise_id, session_id, reps_valid, reps_total, rom_avg, rom_peak]
+
+    SessionSummaryOut:
+      type: object
+      properties:
+        status: { type: string, example: "saved" }
+        summary: { $ref: "#/components/schemas/SessionSummaryIn" }
+
+    Error:
+      type: object
+      properties:
+        detail: { type: string }
