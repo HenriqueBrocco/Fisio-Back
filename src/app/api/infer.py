@@ -1,15 +1,23 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
+from typing import Literal, Optional
+from collections import defaultdict
 import json
-import asyncio
-import random
+
+from app.services.pose_runtime import PoseRuntime
+from app.services.pose_logic import RepDetector, RepConfig, rom_from_keypoints
 
 router = APIRouter()
 
+# ======== MODELOS ========
+
 class KeypointsIn(BaseModel):
-    # exemplo simples; ajuste conforme seu pipeline
-    keypoints: list[list[float]]  # [[x,y,conf], ...]
-    fps: float | None = None
+    # Sequência de frames; cada frame é uma lista de keypoints [x,y,conf]
+    keypoints: list[list[list[float]]]
+    fps: Optional[float] = None
+    normalization: Optional[Literal["pixel", "normalized"]] = "pixel"
+    exercise_id: Optional[str] = None
+    session_id: Optional[str] = None
 
 class InferOut(BaseModel):
     reps: int
@@ -17,43 +25,53 @@ class InferOut(BaseModel):
     cadence: float | None = None
     alerts: list[str] = []
 
-@router.websocket("/ws/session/{session_id}")
-async def ws_infer(websocket: WebSocket, session_id: str):
-    await websocket.accept()
-    try:
-        while True:
-            msg = await websocket.receive()  # pode ser 'text' ou 'bytes'
-            # 1) Se receber texto (JSON de keypoints)
-            if "text" in msg and msg["text"] is not None:
-                payload = json.loads(msg["text"])
-                # TODO: chamar seu serviço de visão com payload
-            # 2) Se receber binário (frame JPEG)
-            elif "bytes" in msg and msg["bytes"] is not None:
-                img_bytes = msg["bytes"]
-                # TODO: processar frame com OpenCV/modelo
-
-            # 3) Enviar métricas 'fake' (simulação)
-            metrics = {
-                "type": "metrics",
-                "reps": random.randint(0, 20),
-                "rom": round(random.uniform(30, 60), 1),
-                "cadence": round(random.uniform(1.8, 2.6), 2),
-                "alerts": ["Mantenha a cadência"] if random.random() > 0.5 else [],
-            }
-            await websocket.send_text(json.dumps(metrics))
-            await asyncio.sleep(0.2)  # ~5 Hz
-
-    except WebSocketDisconnect:
-        # conexão encerrada pelo cliente
-        return
+# ======== ENDPOINTS REST ========
 
 @router.post("/frame", response_model=InferOut)
-async def infer_frame(file: UploadFile = File(...)):
+async def infer_frame(
+    file: UploadFile = File(...),
+    exercise_id: Optional[str] = Form(None),
+    session_id: Optional[str] = Form(None),
+):
     # TODO: processar imagem com OpenCV/Modelo
-    # Por agora, devolve mock:
     return InferOut(reps=3, rom=52.0, cadence=2.1, alerts=["Ótimo alcance!"])
 
 @router.post("/keypoints", response_model=InferOut)
 async def infer_keypoints(payload: KeypointsIn):
-    # TODO: avaliar sequência de keypoints
+    # TODO: analisar sequência payload.keypoints
     return InferOut(reps=4, rom=48.5, cadence=2.3, alerts=["Tente estender um pouco mais"])
+
+# ======== WEBSOCKET (se já estiver usando) ========
+
+_runtime = PoseRuntime()
+_detectors: dict[str, RepDetector] = defaultdict(lambda: RepDetector(RepConfig()))
+
+@router.websocket("/ws/session/{session_id}")
+async def ws_infer(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    
+    print(f"WS: session {session_id} conectado")
+
+    try:
+        while True:
+            data = await websocket.receive_bytes()
+            print(f"WS: recebeu frame de {len(data)} bytes")
+
+            # TODO: aqui você reaproveita sua lógica de inferência
+            # Ex.: keypoints = runtime.detect_pose(data)
+            #      reps, rom, cadence, alerts = lógica_de_reps(keypoints)
+            metrics = {
+                "reps": 0,
+                "rom": 40.3,
+                "cadence": None,
+                "alerts": ["Exemplo de alerta"],
+            }
+
+            await websocket.send_json(metrics)
+            print(f"WS: enviou métricas: {metrics}")
+
+    except WebSocketDisconnect:
+        print(f"WS: session {session_id} desconectado")
+    except Exception as e:
+        print(f"WS: erro na sessão {session_id}: {e}")
+        await websocket.close()
