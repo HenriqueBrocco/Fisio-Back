@@ -1,6 +1,8 @@
 from fastapi import FastAPI
-from app.api import infer, session
+from app.api import infer, sessions
 from fastapi.middleware.cors import CORSMiddleware
+from app.db.session import engine, Base
+from app.models import user, exercise, assignment, session  # noqa: F401
 
 app = FastAPI(title="Fisio API", version="0.1.0")
 
@@ -28,7 +30,7 @@ app.add_middleware(
 
 # Rotas
 app.include_router(infer.router, prefix="/v1/infer", tags=["infer"])
-app.include_router(session.router, prefix="/v1/session", tags=["session"])
+app.include_router(sessions.router, prefix="/v1/sessions", tags=["sessions"])
 
 @app.get("/health")
 def health():
