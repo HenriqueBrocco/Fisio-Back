@@ -5,10 +5,22 @@ from sqlalchemy import pool
 
 from alembic import context
 from dotenv import load_dotenv
-load_dotenv()
+
 import os
+import sys
+
+from pathlib import Path
 from app.db.base import Base
 from app.models.user import User
+
+load_dotenv()
+
+ROOT = Path(__file__).resolve().parents[1]   # raiz do projeto (onde está "src")
+sys.path.insert(0, str(ROOT / "src"))
+
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    context.config.set_main_option("sqlalchemy.url", db_url)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

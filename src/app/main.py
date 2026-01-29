@@ -3,6 +3,9 @@ from app.api import infer, sessions
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import engine, Base
 from app.models import user, exercise, assignment, session  # noqa: F401
+from dotenv import load_dotenv
+
+load_dotenv()  # vai ler .env da raiz (cwd)
 
 app = FastAPI(title="Fisio API", version="0.1.0")
 
