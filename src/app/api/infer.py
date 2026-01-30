@@ -1,13 +1,18 @@
-from fastapi import APIRouter, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, UploadFile, File, Form, WebSocket, WebSocketDisconnect, HTTPException
 from pydantic import BaseModel
 from typing import Literal, Optional
 from collections import defaultdict
-import json
 
+from functools import lru_cache
 from app.services.pose_runtime import PoseRuntime
-from app.services.pose_logic import RepDetector, RepConfig, rom_from_keypoints
+from app.services.pose_logic import RepDetector, RepConfig
 
 router = APIRouter()
+
+@lru_cache(maxsize=1)
+def get_runtime() -> PoseRuntime:
+    # cria 1 vez e reaproveita
+    return PoseRuntime()
 
 # ======== MODELOS ========
 
@@ -42,8 +47,12 @@ async def infer_keypoints(payload: KeypointsIn):
     return InferOut(reps=4, rom=48.5, cadence=2.3, alerts=["Tente estender um pouco mais"])
 
 # ======== WEBSOCKET (se já estiver usando) ========
+try:
+    _runtime = PoseRuntime()
+except Exception as e:
+    # 503: serviço indisponível (dependência opcional/erro de runtime)
+    raise HTTPException(status_code=503, detail=str(e))
 
-_runtime = PoseRuntime()
 _detectors: dict[str, RepDetector] = defaultdict(lambda: RepDetector(RepConfig()))
 
 @router.websocket("/ws/session/{session_id}")

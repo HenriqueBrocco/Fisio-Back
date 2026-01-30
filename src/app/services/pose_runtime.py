@@ -3,10 +3,18 @@ from __future__ import annotations
 from typing import Optional, List
 import cv2
 import numpy as np
-import mediapipe as mp
+try:
+    import mediapipe as mp
+except ModuleNotFoundError:  # mediapipe não instalado
+    mp = None
 
 class PoseRuntime:
     def __init__(self):
+        if mp is None:
+            raise RuntimeError(
+                "Dependência opcional ausente: 'mediapipe'. "
+                "Instale com: pip install mediapipe"
+            )
         self._mp_pose = mp.solutions.pose
         self._pose = self._mp_pose.Pose(
             static_image_mode=False,
