@@ -2,8 +2,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# Ajuste o import abaixo para o seu projeto:
-# - se você tiver app.db.session.get_db, use isso
 from app.db.session import get_db
 
 router = APIRouter(prefix="/health", tags=["health"])

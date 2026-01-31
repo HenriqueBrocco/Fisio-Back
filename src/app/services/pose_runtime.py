@@ -1,4 +1,6 @@
-# src/app/services/pose_runtime.py
+# NOTE: Mediapipe é dependência opcional e pode não existir no ambiente.
+# Por isso, carregamos runtime sob demanda para não impedir a API de subir.
+
 from __future__ import annotations
 from typing import Optional, List
 import cv2

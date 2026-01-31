@@ -1,3 +1,44 @@
-python uvicorn app.main:app --reload --app-dir src --host 0.0.0.0 --port 8000
-python -m uvicorn app.main:app --reload --app-dir src --host 0.0.0.0 --port 8000
+# Fisio Backend (TCC)
+
+Backend em **FastAPI** para o aplicativo do TCC.
+
+## Stack
+- Python 3.11
+- FastAPI + Uvicorn
+- PostgreSQL
+- SQLAlchemy + Alembic (migrations)
+
+## Estrutura de pastas (resumo)
+- `src/app/main.py` — inicialização da API
+- `src/app/api/` — rotas (endpoints)
+- `src/app/models/` — modelos SQLAlchemy
+- `src/app/schemas/` — schemas Pydantic (request/response)
+- `src/app/db/` — sessão/engine/base do banco
+- `alembic/` — migrations
+
+## Requisitos
+- Python 3.11+
+- PostgreSQL (local ou via Docker, recomendo via Docker)
+
+## Configuração
+Crie um arquivo `.env` baseado no `.env.example`.
+
+## Rodando o banco (Docker)
+> Se você já roda Postgres fora do Docker, pode pular esta etapa.
+
+```bash
+docker compose up -d db
+
+# Instalando dependências
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+
+# Aplicando migrations
 alembic upgrade head
+
+# Subindo a API
+python -m uvicorn app.main:app --reload --app-dir src --host 0.0.0.0 --port 8000
+
+# Swagger: http://localhost:8000/docs
+```

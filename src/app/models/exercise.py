@@ -2,7 +2,7 @@ from sqlalchemy import Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 
-from app.db.session import Base
+from app.db.base import Base
 
 class Exercise(Base):
     __tablename__ = "exercises"

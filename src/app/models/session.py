@@ -3,7 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 import uuid
 
-from app.db.session import Base
+from app.db.base import Base
 
 class Session(Base):
     __tablename__ = "sessions"

@@ -4,7 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 #from app.db.session import engine, Base
 #from app.models import user, exercise, assignment, session  # noqa: F401
 from app.api.health import router as health_router
+from app.api.patients import router as patients_router
 from dotenv import load_dotenv
+from app.api.router import api_router
 
 load_dotenv()  # vai ler .env da raiz (cwd)
 
@@ -33,9 +35,8 @@ app.add_middleware(
 )
 
 # Rotas
+app.include_router(api_router)
 app.include_router(infer.router, prefix="/v1/infer", tags=["infer"])
 app.include_router(sessions.router, prefix="/v1/sessions", tags=["sessions"])
-app.include_router(health_router)
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+#app.include_router(health_router)
+#app.include_router(patients_router)
