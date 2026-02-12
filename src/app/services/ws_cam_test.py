@@ -3,7 +3,8 @@ import json
 import cv2
 from websocket import create_connection
 
-WS_URL = "ws://127.0.0.1:8000/v1/infer/ws/session/sess-pc-test"
+WS_URL = "ws://127.0.0.1:8000/infer/ws/session/<SESSION_ID>?token=<TOKEN>"
+#WS_URL = "ws://127.0.0.1:8000/infer/ws/session/31abc5bf-9114-4019-9652-e0cb12d64e88?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyODJmMzgzYy1mYjc2LTQ5NGYtODZlYi1lODVjZWUwNWMzYWUiLCJyb2xlIjoiUFJPIiwiZXhwIjoxNzcwOTM3MTcyLCJpYXQiOjE3NzA5MzM1NzJ9.cAlemFpps7Y-Ee3a4Ni4eByIklpYp1bEDiP_506sB1I"
 
 def main():
     print(f"Conectando em {WS_URL} ...")

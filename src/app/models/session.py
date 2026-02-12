@@ -1,4 +1,4 @@
-from sqlalchemy import String, DateTime, ForeignKey, Integer, JSON
+from sqlalchemy import String, DateTime, ForeignKey, Integer, JSON, Float
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 import uuid
@@ -24,7 +24,7 @@ class SessionSummary(Base):
 
     session_id: Mapped[str] = mapped_column(String, ForeignKey("sessions.id"), primary_key=True)
     reps: Mapped[int] = mapped_column(Integer, default=0)
-    rom: Mapped[float] = mapped_column(Integer, default=0)  # se quiser float real, uso Float
-    cadence: Mapped[float | None] = mapped_column(Integer, nullable=True)
+    rom: Mapped[float] = mapped_column(Float, default=0.0)
+    cadence: Mapped[float | None] = mapped_column(Float, nullable=True)
     alerts: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -42,3 +42,18 @@ python -m uvicorn app.main:app --reload --app-dir src --host 0.0.0.0 --port 8000
 
 # Swagger: http://localhost:8000/docs
 ```
+
+## Criando o primeiro user Pro
+python -m scripts.create_pro
+
+## Teste de WebSocket (streaming de frames)
+
+1) Coloque um frame JPEG em `tests/assets/frame.jpg` (uma foto com uma pessoa visível ajuda a gerar métricas).
+2) Suba a API localmente.
+3) Rode:
+
+```powershell
+pip install requests websocket-client
+$env:TEST_PRO_EMAIL='admin@admin.com'
+$env:TEST_PRO_PASSWORD='123456'
+python -m scripts.ws_stream_test

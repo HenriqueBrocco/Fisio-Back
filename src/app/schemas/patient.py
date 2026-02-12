@@ -3,6 +3,7 @@
 
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from pydantic import ConfigDict
 
 class PatientCreate(BaseModel):
     name: str = Field(..., max_length=120)
@@ -20,5 +21,4 @@ class PatientOut(BaseModel):
     name: str
     email: EmailStr
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.patient import PatientCreate, PatientUpdate, PatientOut
+from app.api.deps import require_role
 
 import hashlib
 
@@ -15,7 +16,7 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 @router.post("", response_model=PatientOut, status_code=status.HTTP_201_CREATED)
-def create_patient(payload: PatientCreate, db: Session = Depends(get_db)):
+def create_patient(payload: PatientCreate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
     # email único
     exists = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if exists:
@@ -35,14 +36,14 @@ def create_patient(payload: PatientCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[PatientOut])
-def list_patients(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
+def list_patients(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
     q = select(User).where(User.role == "PATIENT").offset(skip).limit(limit)
     patients = db.execute(q).scalars().all()
     return patients
 
 
 @router.get("/{patient_id}", response_model=PatientOut)
-def get_patient(patient_id: str, db: Session = Depends(get_db)):
+def get_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
     patient = db.execute(
         select(User).where(User.id == patient_id, User.role == "PATIENT")
     ).scalar_one_or_none()
@@ -53,7 +54,7 @@ def get_patient(patient_id: str, db: Session = Depends(get_db)):
 
 
 @router.put("/{patient_id}", response_model=PatientOut)
-def update_patient(patient_id: str, payload: PatientUpdate, db: Session = Depends(get_db)):
+def update_patient(patient_id: str, payload: PatientUpdate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
     patient = db.execute(
         select(User).where(User.id == patient_id, User.role == "PATIENT")
     ).scalar_one_or_none()
@@ -80,7 +81,7 @@ def update_patient(patient_id: str, payload: PatientUpdate, db: Session = Depend
 
 
 @router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_patient(patient_id: str, db: Session = Depends(get_db)):
+def delete_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
     patient = db.execute(
         select(User).where(User.id == patient_id, User.role == "PATIENT")
     ).scalar_one_or_none()
