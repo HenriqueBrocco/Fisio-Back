@@ -1,13 +1,16 @@
-from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional, Any, Literal
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 Schedule = Literal["DAILY", "WEEKLY", "CUSTOM"]
+
 
 class ExerciseConfigCreate(BaseModel):
     exercise_id: int
     patient_user_id: str
     params: dict[str, Any] = Field(default_factory=dict)
+
 
 class ExerciseConfigOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -26,10 +29,12 @@ class AssignmentCreate(BaseModel):
     schedule: str = Field(default="DAILY", max_length=30)
     active: bool = True
 
+
 class AssignmentUpdate(BaseModel):
-    schedule: Optional[str] = Field(None, max_length=30)
-    active: Optional[bool] = None
-    config_id: Optional[int] = None
+    schedule: str | None = Field(None, max_length=30)
+    active: bool | None = None
+    config_id: int | None = None
+
 
 class AssignmentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

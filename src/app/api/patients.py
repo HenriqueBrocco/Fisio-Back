@@ -1,22 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.api.deps import require_role
+from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.patient import PatientCreate, PatientUpdate, PatientOut
-from app.api.deps import require_role
-
-import hashlib
+from app.schemas.patient import PatientCreate, PatientOut, PatientUpdate
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
-def hash_password(password: str) -> str:
-    # Simples por enquanto (sem auth). Depois trocamos por passlib/bcrypt.
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+# def hash_password(password: str) -> str:
+#    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
 
 @router.post("", response_model=PatientOut, status_code=status.HTTP_201_CREATED)
-def create_patient(payload: PatientCreate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
+def create_patient(
+    payload: PatientCreate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))
+):
     # email único
     exists = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
     if exists:
@@ -36,7 +37,9 @@ def create_patient(payload: PatientCreate, db: Session = Depends(get_db), _=Depe
 
 
 @router.get("", response_model=list[PatientOut])
-def list_patients(skip: int = 0, limit: int = 50, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
+def list_patients(
+    skip: int = 0, limit: int = 50, db: Session = Depends(get_db), _=Depends(require_role("PRO"))
+):
     q = select(User).where(User.role == "PATIENT").offset(skip).limit(limit)
     patients = db.execute(q).scalars().all()
     return patients
@@ -54,7 +57,12 @@ def get_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(requir
 
 
 @router.put("/{patient_id}", response_model=PatientOut)
-def update_patient(patient_id: str, payload: PatientUpdate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
+def update_patient(
+    patient_id: str,
+    payload: PatientUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_role("PRO")),
+):
     patient = db.execute(
         select(User).where(User.id == patient_id, User.role == "PATIENT")
     ).scalar_one_or_none()

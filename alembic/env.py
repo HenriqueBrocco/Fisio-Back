@@ -1,10 +1,17 @@
 # IMPORTANT: Importar todos os models aqui para o autogenerate enxergar as tabelas.
 
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from alembic import context
 import os
+from logging.config import fileConfig
+
 from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool
+
+from alembic import context
+from app.db.base import Base
+from app.models.assignment import Assignment  # noqa: F401
+from app.models.exercise import Exercise  # noqa: F401
+from app.models.session import Session, SessionSummary  # noqa: F401
+from app.models.user import User  # noqa: F401
 
 load_dotenv()
 
@@ -16,17 +23,13 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # --- IMPORTANTE: use sempre o mesmo Base dos models ---
-from app.db.base import Base
+
 
 # --- IMPORTANTE: importe os models antes do autogenerate ---
 # Opção A (recomendada): ter um app/models/__init__.py que importa todos os models.
 # import app.models  # noqa: F401
-
 # Opção B: importar explicitamente (funciona mesmo sem __init__.py)
-from app.models.user import User  # noqa: F401
-from app.models.session import Session, SessionSummary  # noqa: F401
-from app.models.exercise import Exercise  # noqa: F401
-from app.models.assignment import Assignment  # noqa: F401
+
 
 target_metadata = Base.metadata
 
@@ -43,8 +46,8 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        compare_type=True,           # detecta mudança de tipo
-        compare_server_default=True, # detecta default no server
+        compare_type=True,  # detecta mudança de tipo
+        compare_server_default=True,  # detecta default no server
     )
 
     with context.begin_transaction():

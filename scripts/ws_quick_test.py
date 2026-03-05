@@ -1,9 +1,10 @@
 import os
 import urllib.parse
+
 from websocket import create_connection
 
-TOKEN = os.getenv("WS_TOKEN")          # nome da variável
-SESSION_ID = os.getenv("WS_SESSION_ID") # nome da variável
+TOKEN = os.getenv("WS_TOKEN")  # nome da variável
+SESSION_ID = os.getenv("WS_SESSION_ID")  # nome da variável
 
 if not TOKEN:
     raise SystemExit("WS_TOKEN não definido. Rode: $env:WS_TOKEN='...'")

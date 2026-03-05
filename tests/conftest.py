@@ -1,10 +1,11 @@
 import os
-import pytest
-from fastapi.testclient import TestClient
 
 # Import do app (lembrando: seu app está em src/)
 import sys
 from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"

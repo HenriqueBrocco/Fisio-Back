@@ -4,4 +4,5 @@ class VisionService:
         # TODO: OpenCV/Modelo
         return {"reps": 0, "rom": 0.0}
 
+
 vision = VisionService()

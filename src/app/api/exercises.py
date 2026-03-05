@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import select
+from sqlalchemy.orm import Session as DBSession
 
+from app.api.deps import get_current_user, require_role
 from app.db.session import get_db
 from app.models.exercise import Exercise
-from app.schemas.exercise import ExerciseCreate, ExerciseUpdate, ExerciseOut
-from app.api.deps import get_current_user, require_role
 from app.models.user import User
+from app.schemas.exercise import ExerciseCreate, ExerciseOut, ExerciseUpdate
 
 router = APIRouter(prefix="/exercises", tags=["exercises"])
 

@@ -1,15 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import select
+from sqlalchemy.orm import Session as DBSession
 
-from app.db.session import get_db
 from app.api.deps import get_current_user, require_role
-from app.models.user import User
-from app.models.exercise import Exercise
+from app.db.session import get_db
 from app.models.assignment import Assignment, ExerciseConfig
+from app.models.exercise import Exercise
+from app.models.user import User
 from app.schemas.assignment import (
-    ExerciseConfigCreate, ExerciseConfigOut,
-    AssignmentCreate, AssignmentUpdate, AssignmentOut,
+    AssignmentCreate,
+    AssignmentOut,
+    AssignmentUpdate,
+    ExerciseConfigCreate,
+    ExerciseConfigOut,
 )
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
@@ -18,6 +21,7 @@ router = APIRouter(prefix="/assignments", tags=["assignments"])
 # -------------------------
 # ExerciseConfig endpoints
 # -------------------------
+
 
 @router.post("/configs", response_model=ExerciseConfigOut, status_code=status.HTTP_201_CREATED)
 def create_exercise_config(
@@ -30,7 +34,9 @@ def create_exercise_config(
     if not ex:
         raise HTTPException(status_code=404, detail="exercise_id não encontrado")
 
-    patient = db.execute(select(User).where(User.id == payload.patient_user_id)).scalar_one_or_none()
+    patient = db.execute(
+        select(User).where(User.id == payload.patient_user_id)
+    ).scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="patient_user_id não encontrado")
 
@@ -61,7 +67,9 @@ def list_configs(
 
 @router.get("/configs/{config_id}", response_model=ExerciseConfigOut)
 def get_config(config_id: int, db: DBSession = Depends(get_db)):
-    cfg = db.execute(select(ExerciseConfig).where(ExerciseConfig.id == config_id)).scalar_one_or_none()
+    cfg = db.execute(
+        select(ExerciseConfig).where(ExerciseConfig.id == config_id)
+    ).scalar_one_or_none()
     if not cfg:
         raise HTTPException(status_code=404, detail="Config não encontrada")
     return cfg
@@ -70,6 +78,7 @@ def get_config(config_id: int, db: DBSession = Depends(get_db)):
 # -------------------------
 # Assignment endpoints
 # -------------------------
+
 
 @router.post("", response_model=AssignmentOut, status_code=status.HTTP_201_CREATED)
 def create_assignment(
@@ -83,17 +92,23 @@ def create_assignment(
         raise HTTPException(status_code=404, detail="exercise_id não encontrado")
 
     # valida patient
-    patient = db.execute(select(User).where(User.id == payload.patient_user_id)).scalar_one_or_none()
+    patient = db.execute(
+        select(User).where(User.id == payload.patient_user_id)
+    ).scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="patient_user_id não encontrado")
 
     # valida config existe e pertence ao mesmo patient+exercise
-    cfg = db.execute(select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)).scalar_one_or_none()
+    cfg = db.execute(
+        select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)
+    ).scalar_one_or_none()
     if not cfg:
         raise HTTPException(status_code=404, detail="config_id não encontrado")
 
     if cfg.patient_user_id != payload.patient_user_id or cfg.exercise_id != payload.exercise_id:
-        raise HTTPException(status_code=400, detail="config_id não pertence ao patient/exercise informado")
+        raise HTTPException(
+            status_code=400, detail="config_id não pertence ao patient/exercise informado"
+        )
 
     a = Assignment(
         patient_user_id=payload.patient_user_id,
@@ -152,12 +167,16 @@ def update_assignment(
         raise HTTPException(status_code=404, detail="Assignment não encontrado")
 
     if payload.config_id is not None:
-        cfg = db.execute(select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)).scalar_one_or_none()
+        cfg = db.execute(
+            select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)
+        ).scalar_one_or_none()
         if not cfg:
             raise HTTPException(status_code=404, detail="config_id não encontrado")
         # garante coerência com patient/exercise
         if cfg.patient_user_id != a.patient_user_id or cfg.exercise_id != a.exercise_id:
-            raise HTTPException(status_code=400, detail="config_id não pertence ao patient/exercise do assignment")
+            raise HTTPException(
+                status_code=400, detail="config_id não pertence ao patient/exercise do assignment"
+            )
         a.config_id = payload.config_id
 
     if payload.schedule is not None:

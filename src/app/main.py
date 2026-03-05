@@ -1,4 +1,4 @@
-import app.models # noqa
+import app.models  # noqa
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -23,8 +23,8 @@ app.add_middleware(
         "http://127.0.0.1:4321",
         "http://127.0.0.1:51439",
         "http://127.0.0.1:5173",
-        "http://127.0.0.1",       # Flutter Web dev server
-        "http://localhost",       # Flutter Web dev server
+        "http://127.0.0.1",  # Flutter Web dev server
+        "http://localhost",  # Flutter Web dev server
     ],
     allow_credentials=True,
     allow_methods=["*"],

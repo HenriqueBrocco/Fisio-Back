@@ -1,17 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session as DBSession
-from sqlalchemy import select
 from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session as DBSession
+
 from app.api.deps import get_current_user
-from app.models.user import User
 from app.db.session import get_db
-from app.models.session import Session as SessionModel, SessionSummary as SessionSummaryModel
-from app.schemas.session import (
-    SessionOut,
-    SessionSummaryIn,
-    SessionSummaryOut,
-    SessionFinalizeIn
-)
+from app.models.session import Session as SessionModel
+from app.models.session import SessionSummary as SessionSummaryModel
+from app.models.user import User
+from app.schemas.session import SessionFinalizeIn, SessionOut, SessionSummaryIn, SessionSummaryOut
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -29,12 +27,20 @@ def get_session(
     return s
 
 
-@router.post("/{session_id}/summary", response_model=SessionSummaryOut, status_code=status.HTTP_201_CREATED)
-def upsert_session_summary(session_id: str, payload: SessionSummaryIn, db: DBSession = Depends(get_db)):
-    # garante que a sessão existe
+@router.post(
+    "/{session_id}/summary", response_model=SessionSummaryOut, status_code=status.HTTP_201_CREATED
+)
+def upsert_session_summary(
+    session_id: str,
+    payload: SessionSummaryIn,
+    db: DBSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     s = db.execute(select(SessionModel).where(SessionModel.id == session_id)).scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+
+    _ensure_session_access(user, s)
 
     summary = db.execute(
         select(SessionSummaryModel).where(SessionSummaryModel.session_id == session_id)
@@ -61,13 +67,23 @@ def upsert_session_summary(session_id: str, payload: SessionSummaryIn, db: DBSes
 
 
 @router.get("/{session_id}/summary", response_model=SessionSummaryOut)
-def get_session_summary(session_id: str, db: DBSession = Depends(get_db)):
+def get_session_summary(
+    session_id: str,
+    db: DBSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    s = db.execute(select(SessionModel).where(SessionModel.id == session_id)).scalar_one_or_none()
+    if not s:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada.")
+    _ensure_session_access(user, s)
+
     summary = db.execute(
         select(SessionSummaryModel).where(SessionSummaryModel.session_id == session_id)
     ).scalar_one_or_none()
     if not summary:
         raise HTTPException(status_code=404, detail="Resumo não encontrado.")
     return summary
+
 
 @router.post("/{session_id}/start", response_model=SessionOut)
 def start_session(
@@ -89,6 +105,7 @@ def start_session(
     db.refresh(s)
     return s
 
+
 @router.post("/{session_id}/finish", response_model=SessionOut)
 def finish_session(
     session_id: str,
@@ -109,10 +126,12 @@ def finish_session(
     db.refresh(s)
     return s
 
+
 def _ensure_session_access(user: User, sess: SessionModel) -> None:
     if user.role == "PATIENT" and sess.patient_user_id != user.id:
         raise HTTPException(status_code=403, detail="Sem permissão para esta sessão.")
-    
+
+
 @router.post("/{session_id}/finalize", response_model=SessionOut)
 def finalize_session(
     session_id: str,

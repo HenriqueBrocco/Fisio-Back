@@ -1,8 +1,10 @@
-from sqlalchemy import Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 
+from sqlalchemy import DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+
 from app.db.base import Base
+
 
 class Exercise(Base):
     __tablename__ = "exercises"

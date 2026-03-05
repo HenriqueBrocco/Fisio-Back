@@ -2,7 +2,6 @@ services:
   db:
     image: postgres:16
     container_name: fisio_postgres
-    restart: unless-stopped
     environment:
       POSTGRES_DB: fisio
       POSTGRES_USER: fisio
@@ -11,6 +10,29 @@ services:
       - "5433:5432"
     volumes:
       - fisio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fisio -d fisio"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fisio_api
+    environment:
+      # dentro do docker, o host do banco é "db"
+      DATABASE_URL: postgresql+psycopg://fisio:fisio@db:5432/fisio
+      SECRET_KEY: ${SECRET_KEY:-change-me-please}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # hot reload opcional (dev): monta o código
+    volumes:
+      - .:/app
 
 volumes:
   fisio_pgdata:

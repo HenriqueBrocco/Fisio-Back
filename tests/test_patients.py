@@ -1,6 +1,6 @@
 import os
 import time
-import pytest
+
 
 def _login_and_get_token(client) -> str:
     """

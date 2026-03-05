@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from app.db.session import SessionLocal  # usa o mesmo SessionLocal do seu db/session.py
-from app.models.session import Session as SessionModel, SessionSummary as SessionSummaryModel
+from app.models.session import Session as SessionModel
+from app.models.session import SessionSummary as SessionSummaryModel
 from app.models.user import User
+from app.services.pose_logic import RepDetector, rom_from_keypoints
 from app.services.pose_runtime import PoseRuntime
-from app.services.pose_logic import rom_from_keypoints, RepDetector
 
 router = APIRouter(prefix="/infer", tags=["infer"])
 
@@ -61,7 +63,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
         # Se você ainda não quiser auth no WS, pode comentar este bloco.
         token = _get_token_from_ws(websocket)
         if not token:
-            await websocket.send_json({"type": "error", "detail": "Token ausente (Authorization Bearer ou ?token=...)"})
+            await websocket.send_json(
+                {"type": "error", "detail": "Token ausente (Authorization Bearer ou ?token=...)"}
+            )
             await websocket.close(code=1008)
             return
 
@@ -72,7 +76,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
         user = get_current_user_from_token(db, token)
 
         # ---- valida sessão existe ----
-        sess = db.execute(select(SessionModel).where(SessionModel.id == session_id)).scalar_one_or_none()
+        sess = db.execute(
+            select(SessionModel).where(SessionModel.id == session_id)
+        ).scalar_one_or_none()
         if not sess:
             await websocket.send_json({"type": "error", "detail": "Sessão não encontrada."})
             await websocket.close(code=1008)
@@ -98,7 +104,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
         last_metrics = {"reps": 0, "rom": 0.0, "cadence": None, "alerts": []}
         had_valid_metrics = False
 
-        await websocket.send_json({"type": "ready", "session_id": session_id, "status": sess.status})
+        await websocket.send_json(
+            {"type": "ready", "session_id": session_id, "status": sess.status}
+        )
 
         # 4) loop de frames
         while True:
@@ -106,22 +114,40 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             frame: bytes | None = msg.get("bytes")
 
             if frame is None:
-                await websocket.send_json({"type": "error", "detail": "Envie frames como binário (JPEG bytes)."})
+                await websocket.send_json(
+                    {"type": "error", "detail": "Envie frames como binário (JPEG bytes)."}
+                )
                 continue
 
             bgr = runtime.decode_jpeg(frame)
             if bgr is None:
-                await websocket.send_json({"type": "metrics", "session_id": session_id, "ok": False, "reason": "decode_failed"})
+                await websocket.send_json(
+                    {
+                        "type": "metrics",
+                        "session_id": session_id,
+                        "ok": False,
+                        "reason": "decode_failed",
+                    }
+                )
                 continue
 
             keypoints = runtime.infer_keypoints(bgr)
             if not keypoints:
-                await websocket.send_json({"type": "metrics", "session_id": session_id, "ok": False, "reason": "no_pose"})
+                await websocket.send_json(
+                    {"type": "metrics", "session_id": session_id, "ok": False, "reason": "no_pose"}
+                )
                 continue
 
             rom = rom_from_keypoints(keypoints)
             if rom is None:
-                await websocket.send_json({"type": "metrics", "session_id": session_id, "ok": False, "reason": "low_visibility"})
+                await websocket.send_json(
+                    {
+                        "type": "metrics",
+                        "session_id": session_id,
+                        "ok": False,
+                        "reason": "low_visibility",
+                    }
+                )
                 continue
 
             metrics = detector.update(rom)
@@ -155,7 +181,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
                 if db and sess:
                     # grava/atualiza summary final (apenas no final)
                     summary = db.execute(
-                        select(SessionSummaryModel).where(SessionSummaryModel.session_id == session_id)
+                        select(SessionSummaryModel).where(
+                            SessionSummaryModel.session_id == session_id
+                        )
                     ).scalar_one_or_none()
 
                     if summary:
@@ -187,6 +215,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
                 await websocket.close()
             except Exception:
                 pass
+
 
 @router.get("/ws/ping")
 def ws_ping():

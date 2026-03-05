@@ -13,14 +13,14 @@ sys.path.insert(0, str(SRC))
 # --- carrega variáveis do .env na raiz do projeto ---
 try:
     from dotenv import load_dotenv
+
     load_dotenv(ROOT / ".env")
 except Exception:
     # se não tiver python-dotenv instalado, segue só com env do sistema
     pass
 
-from app.models.user import User   # noqa: E402
-from app.core.security import hash_password   # noqa: E402
-
+from app.core.security import hash_password  # noqa: E402
+from app.models.user import User  # noqa: E402
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:

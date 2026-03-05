@@ -1,7 +1,8 @@
+import json
 import os
 import time
-import json
 import urllib.parse
+
 import requests
 from websocket import create_connection
 
@@ -15,9 +16,11 @@ FRAME_PATH = os.getenv("WS_TEST_FRAME", "tests/assets/frame.jpg")
 N_FRAMES = int(os.getenv("WS_TEST_N_FRAMES", "30"))
 SLEEP_BETWEEN = float(os.getenv("WS_TEST_SLEEP", "0.05"))  # 50ms
 
+
 def _assert(ok: bool, msg: str):
     if not ok:
         raise SystemExit(msg)
+
 
 def login_token() -> str:
     r = requests.post(
@@ -31,8 +34,10 @@ def login_token() -> str:
     _assert(bool(token), "Token vazio no login.")
     return token
 
+
 def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
 
 def create_patient(token: str) -> str:
     unique = int(time.time())
@@ -45,6 +50,7 @@ def create_patient(token: str) -> str:
     _assert(r.status_code in (200, 201), f"Create patient falhou: {r.status_code} {r.text}")
     return r.json()["id"]
 
+
 def create_exercise(token: str) -> int:
     unique = int(time.time())
     payload = {
@@ -53,9 +59,12 @@ def create_exercise(token: str) -> int:
         "body_focus": "TRUNK",
         "analysis_kind": "V1_LITE_THRESHOLDS",
     }
-    r = requests.post(f"{BASE_URL}/exercises", json=payload, headers=auth_headers(token), timeout=20)
+    r = requests.post(
+        f"{BASE_URL}/exercises", json=payload, headers=auth_headers(token), timeout=20
+    )
     _assert(r.status_code in (200, 201), f"Create exercise falhou: {r.status_code} {r.text}")
     return r.json()["id"]
+
 
 def create_config(token: str, patient_id: str, exercise_id: int) -> int:
     payload = {
@@ -63,9 +72,12 @@ def create_config(token: str, patient_id: str, exercise_id: int) -> int:
         "patient_user_id": patient_id,
         "params": {"threshold": 0.8, "side": "R"},
     }
-    r = requests.post(f"{BASE_URL}/assignments/configs", json=payload, headers=auth_headers(token), timeout=20)
+    r = requests.post(
+        f"{BASE_URL}/assignments/configs", json=payload, headers=auth_headers(token), timeout=20
+    )
     _assert(r.status_code in (200, 201), f"Create config falhou: {r.status_code} {r.text}")
     return r.json()["id"]
+
 
 def create_assignment(token: str, patient_id: str, exercise_id: int, config_id: int) -> int:
     payload = {
@@ -75,9 +87,12 @@ def create_assignment(token: str, patient_id: str, exercise_id: int, config_id: 
         "schedule": "DAILY",
         "active": True,
     }
-    r = requests.post(f"{BASE_URL}/assignments", json=payload, headers=auth_headers(token), timeout=20)
+    r = requests.post(
+        f"{BASE_URL}/assignments", json=payload, headers=auth_headers(token), timeout=20
+    )
     _assert(r.status_code in (200, 201), f"Create assignment falhou: {r.status_code} {r.text}")
     return r.json()["id"]
+
 
 def create_session(token: str, patient_id: str, exercise_id: int, assignment_id: int) -> str:
     payload = {
@@ -94,14 +109,19 @@ def create_session(token: str, patient_id: str, exercise_id: int, assignment_id:
     _assert(r.status_code in (200, 201), f"Create session falhou: {r.status_code} {r.text}")
     return r.json()["id"]
 
+
 def get_session(token: str, session_id: str) -> dict:
     r = requests.get(f"{BASE_URL}/sessions/{session_id}", headers=auth_headers(token), timeout=20)
     _assert(r.status_code == 200, f"GET session falhou: {r.status_code} {r.text}")
     return r.json()
 
+
 def get_summary(token: str, session_id: str) -> tuple[int, str]:
-    r = requests.get(f"{BASE_URL}/sessions/{session_id}/summary", headers=auth_headers(token), timeout=20)
+    r = requests.get(
+        f"{BASE_URL}/sessions/{session_id}/summary", headers=auth_headers(token), timeout=20
+    )
     return r.status_code, r.text
+
 
 def main():
     _assert(os.path.exists(FRAME_PATH), f"Frame não encontrado: {FRAME_PATH}")
@@ -128,11 +148,11 @@ def main():
     print("WS ready:", ready)
 
     print(f"4) Enviando {N_FRAMES} frames...")
-    last_metrics = None
+    # last_metrics = None
     for i in range(N_FRAMES):
         ws.send_binary(frame_bytes)
         msg = ws.recv()
-        last_metrics = msg
+        # last_metrics = msg
         if i < 3 or i == N_FRAMES - 1:
             print("WS msg:", msg)
         time.sleep(SLEEP_BETWEEN)
@@ -145,8 +165,15 @@ def main():
 
     print("6) Validando sessão...")
     sess = get_session(token, session_id)
-    print("Session:", json.dumps({k: sess.get(k) for k in ["id", "status", "started_at", "finished_at"]}, indent=2))
-    _assert(sess.get("status") in ("FINISHED", "RUNNING"), "Status inesperado após WS.")  # pode demorar 1s em dev
+    print(
+        "Session:",
+        json.dumps(
+            {k: sess.get(k) for k in ["id", "status", "started_at", "finished_at"]}, indent=2
+        ),
+    )
+    _assert(
+        sess.get("status") in ("FINISHED", "RUNNING"), "Status inesperado após WS."
+    )  # pode demorar 1s em dev
 
     print("7) Validando summary (pode ser 404 se não teve métrica válida)...")
     code, text = get_summary(token, session_id)
@@ -154,7 +181,10 @@ def main():
     print("Summary body:", text[:300] + ("..." if len(text) > 300 else ""))
 
     print("\n✅ ws_stream_test concluído.")
-    print("Obs: se Summary deu 404, é normal quando o frame não contém pose detectável (por causa do ajuste de não salvar vazio).")
+    print(
+        "Obs: se Summary deu 404, é normal quando o frame não contém pose detectável (por causa do ajuste de não salvar vazio)."
+    )
+
 
 if __name__ == "__main__":
     main()

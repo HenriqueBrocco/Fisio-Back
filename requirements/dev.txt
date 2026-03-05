@@ -1,7 +1,8 @@
 -r base.txt
 
-pytest
-httpx
+pytest==8.3.4
+httpx==0.27.2
 
-ruff
-black
+ruff==0.8.2
+black==24.10.0
+pre-commit==4.0.1

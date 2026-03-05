@@ -1,8 +1,10 @@
-from sqlalchemy import Integer, String, DateTime, ForeignKey, Boolean, JSON
-from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column
+
 from app.db.base import Base
+
 
 class ExerciseConfig(Base):
     __tablename__ = "exercise_configs"
@@ -15,6 +17,7 @@ class ExerciseConfig(Base):
     params: Mapped[dict] = mapped_column(JSON, default=dict)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
 
 class Assignment(Base):
     __tablename__ = "assignments"

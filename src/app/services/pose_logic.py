@@ -1,9 +1,9 @@
 # src/app/services/pose_logic.py
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import List, Optional, Dict
+
 import math
 import time
+from dataclasses import dataclass
 
 # Índices dos pontos do lado DIREITO (MediaPipe BlazePose)
 HIP_R = 24
@@ -30,7 +30,7 @@ def _angle_between(p1, p2, p3) -> float:
     return math.degrees(math.acos(cosang))
 
 
-def rom_from_keypoints(keypoints: List[List[float]]) -> Optional[float]:
+def rom_from_keypoints(keypoints: list[list[float]]) -> float | None:
     """
     Calcula o ângulo do joelho (ROM) a partir dos keypoints normalizados BlazePose.
 
@@ -57,12 +57,12 @@ def rom_from_keypoints(keypoints: List[List[float]]) -> Optional[float]:
 
 @dataclass
 class RepConfig:
-    low_deg: float = 30.0        # abaixo disso consideramos "joelho flexionado"
-    high_deg: float = 55.0       # acima disso consideramos "joelho estendido"
-    rom_target: float = 50.0     # alvo desejado de ROM
+    low_deg: float = 30.0  # abaixo disso consideramos "joelho flexionado"
+    high_deg: float = 55.0  # acima disso consideramos "joelho estendido"
+    rom_target: float = 50.0  # alvo desejado de ROM
     min_cycle_time: float = 0.3  # tempo mínimo (s) para considerar uma repetição
-    refractory: float = 0.2      # tempo mínimo entre reps (s)
-    ema_alpha: float = 0.2       # fator de suavização da cadência
+    refractory: float = 0.2  # tempo mínimo entre reps (s)
+    ema_alpha: float = 0.2  # fator de suavização da cadência
 
 
 class RepDetector:
@@ -75,19 +75,19 @@ class RepDetector:
         self.cfg = cfg or RepConfig()
         self.state = "idle"
         self.reps = 0
-        self.last_rom: Optional[float] = None
-        self.last_peak_time: Optional[float] = None
-        self.last_rep_time: Optional[float] = None
-        self.ema_cadence: Optional[float] = None  # segundos por repetição
+        self.last_rom: float | None = None
+        self.last_peak_time: float | None = None
+        self.last_rep_time: float | None = None
+        self.ema_cadence: float | None = None  # segundos por repetição
 
-    def update(self, rom: float) -> Dict[str, object]:
+    def update(self, rom: float) -> dict[str, object]:
         """
         Atualiza o detector com o ROM atual.
         Retorna um dicionário com métricas:
         { "reps": int, "rom": float, "cadence": float|None, "alerts": [str] }
         """
         now = time.time()
-        alerts: List[str] = []
+        alerts: list[str] = []
 
         # Guarda ROM atual
         self.last_rom = rom
@@ -125,9 +125,7 @@ class RepDetector:
                                         self.ema_cadence = dt
                                     else:
                                         a = self.cfg.ema_alpha
-                                        self.ema_cadence = (
-                                            a * dt + (1 - a) * self.ema_cadence
-                                        )
+                                        self.ema_cadence = a * dt + (1 - a) * self.ema_cadence
                             self.last_rep_time = now
                 # volta para idle esperando o próximo ciclo
                 self.state = "idle"

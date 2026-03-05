@@ -5,17 +5,18 @@ Revises: f9380c102e1b
 Create Date: 2026-02-12 18:32:02.879710
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'c1e23c407dc4'
-down_revision: Union[str, Sequence[str], None] = 'f9380c102e1b'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "c1e23c407dc4"
+down_revision: str | Sequence[str] | None = "f9380c102e1b"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade():
@@ -35,6 +36,7 @@ def upgrade():
         postgresql_using="cadence::double precision",
         existing_nullable=True,
     )
+
 
 def downgrade():
     op.alter_column(

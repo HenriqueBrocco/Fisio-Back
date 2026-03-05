@@ -1,18 +1,22 @@
 import os
 from datetime import datetime, timedelta
+
+from jose import JWTError, jwt
 from passlib.context import CryptContext
-from jose import jwt, JWTError
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 ALGORITHM = "HS256"
 SECRET_KEY = os.getenv("SECRET_KEY", "campainha")  # colocar no .env
 
+
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
+
 def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
+
 
 def create_access_token(sub: str, role: str, expires_minutes: int = 60) -> str:
     payload = {
@@ -22,6 +26,7 @@ def create_access_token(sub: str, role: str, expires_minutes: int = 60) -> str:
         "iat": datetime.utcnow(),
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
 
 def decode_access_token(token: str) -> dict:
     try:

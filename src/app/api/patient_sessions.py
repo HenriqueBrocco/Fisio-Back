@@ -1,19 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import select
+from sqlalchemy.orm import Session as DBSession
 
+from app.api.deps import get_current_user, require_role
 from app.db.session import get_db
-from app.models.session import Session as SessionModel
-from app.models.exercise import Exercise
 from app.models.assignment import Assignment
+from app.models.exercise import Exercise
+from app.models.session import Session as SessionModel
 from app.models.user import User
 from app.schemas.session import SessionCreate, SessionOut
-from app.api.deps import get_current_user, require_role
 
 router = APIRouter(prefix="/patients", tags=["patient-sessions"])
 
 
-@router.post("/{patient_id}/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{patient_id}/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED
+)
 def create_patient_session(
     patient_id: str,
     payload: SessionCreate,
@@ -33,7 +35,9 @@ def create_patient_session(
         raise HTTPException(status_code=404, detail="exercise_id não encontrado.")
 
     # 3) garante que o assignment existe e pertence ao paciente e ao exercício
-    asg = db.execute(select(Assignment).where(Assignment.id == payload.assignment_id)).scalar_one_or_none()
+    asg = db.execute(
+        select(Assignment).where(Assignment.id == payload.assignment_id)
+    ).scalar_one_or_none()
     if not asg:
         raise HTTPException(status_code=404, detail="assignment_id não encontrado.")
 
@@ -65,7 +69,9 @@ def list_patient_sessions(
     if user.role == "PATIENT" and user.id != patient_id:
         raise HTTPException(status_code=403, detail="Sem permissão")
 
-    sessions = db.execute(
-        select(SessionModel).where(SessionModel.patient_user_id == patient_id)
-    ).scalars().all()
+    sessions = (
+        db.execute(select(SessionModel).where(SessionModel.patient_user_id == patient_id))
+        .scalars()
+        .all()
+    )
     return sessions

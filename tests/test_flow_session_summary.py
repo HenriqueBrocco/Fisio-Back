@@ -109,10 +109,12 @@ def test_full_flow_patient_assignment_session_summary(client):
     assert summary2["reps"] == 10
 
     # 7.1) Finaliza summario
-    r = client.post(f"/sessions/{session_id}/finalize", json={"reps": 10, "rom": 35.5}, headers=headers)
+    r = client.post(
+        f"/sessions/{session_id}/finalize", json={"reps": 10, "rom": 35.5}, headers=headers
+    )
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "FINISHED"
-    
+
     # 8) finish session (core endpoint)
     r = client.post(f"/sessions/{session_id}/finish", headers=headers)
     assert r.status_code == 200, r.text
