@@ -8,6 +8,7 @@ from app.schemas.assignment import (
     AssignmentCreate,
     AssignmentOut,
     AssignmentUpdate,
+    ConfigParamsUpdate,
     ExerciseConfigCreate,
     ExerciseConfigOut,
 )
@@ -22,6 +23,9 @@ from app.services.assignments_service import (
     list_configs,
     update_assignment,
 )
+from app.services.exercise_config_service import BadRequestError as CfgBadRequest
+from app.services.exercise_config_service import NotFoundError as CfgNotFound
+from app.services.exercise_config_service import update_config_params
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
 
@@ -48,9 +52,13 @@ def create_config_endpoint(
 @router.get("/configs", response_model=list[ExerciseConfigOut])
 def list_configs_endpoint(
     db: DBSession = Depends(get_db),
+    user: User = Depends(get_current_user),
     patient_user_id: str | None = None,
     exercise_id: int | None = None,
 ):
+    if user.role == "PATIENT":
+        patient_user_id = user.id
+
     return list_configs(db, patient_user_id, exercise_id)
 
 
@@ -131,4 +139,19 @@ def update_assignment_endpoint(
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except BadRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.put("/configs/{config_id}/params", response_model=ExerciseConfigOut)
+def update_config_params_endpoint(
+    config_id: int,
+    payload: ConfigParamsUpdate,
+    db: DBSession = Depends(get_db),
+    _=Depends(require_role("PRO")),
+):
+    try:
+        return update_config_params(db, config_id, payload.params)
+    except CfgNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except CfgBadRequest as e:
         raise HTTPException(status_code=400, detail=str(e))

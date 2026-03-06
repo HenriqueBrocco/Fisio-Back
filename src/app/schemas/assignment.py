@@ -46,3 +46,7 @@ class AssignmentOut(BaseModel):
     schedule: str
     active: bool
     created_at: datetime
+
+
+class ConfigParamsUpdate(BaseModel):
+    params: dict[str, Any]

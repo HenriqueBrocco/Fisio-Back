@@ -7,10 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from app.db.session import SessionLocal  # usa o mesmo SessionLocal do seu db/session.py
+from app.models.assignment import Assignment, ExerciseConfig
+from app.models.exercise import Exercise
 from app.models.session import Session as SessionModel
 from app.models.session import SessionSummary as SessionSummaryModel
 from app.models.user import User
-from app.services.pose_logic import RepDetector, rom_from_keypoints
+from app.services.exercise_analysis.dispatcher import create_analyzer
+from app.services.pose_logic import rom_from_keypoints
 from app.services.pose_runtime import PoseRuntime
 
 router = APIRouter(prefix="/infer", tags=["infer"])
@@ -44,6 +47,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
       - on_disconnect: grava SessionSummary final e marca FINISHED
     """
     await websocket.accept()
+
+    last_metrics = {"reps": 0, "rom": 0.0, "cadence": None, "alertas": []}
+    had_valid_metrics = False
 
     # 1) runtime vision opcional
     try:
@@ -92,6 +98,37 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             await websocket.close(code=1008)
             return
 
+        assignment = db.execute(
+            select(Assignment).where(Assignment.id == sess.assignment_id)
+        ).scalar_one_or_none()
+        if not assignment:
+            await websocket.send_json(
+                {"type": "error", "detail": "Prescrição (assignment) não encontrada."}
+            )
+            await websocket.close(code=1008)
+            return
+
+        exercise = db.execute(
+            select(Exercise).where(Exercise.id == assignment.exercise_id)
+        ).scalar_one_or_none()
+        if not exercise:
+            await websocket.send_json({"type": "error", "detail": "Exercício não encontrado."})
+            await websocket.close(code=1008)
+            return
+
+        cfg = db.execute(
+            select(ExerciseConfig).where(ExerciseConfig.id == assignment.config_id)
+        ).scalar_one_or_none()
+        if not cfg:
+            await websocket.send_json(
+                {"type": "error", "detail": "Configuração do exercício não encontrada."}
+            )
+            await websocket.close(code=1008)
+            return
+
+        analysis_kind = exercise.analysis_kind
+        analysis_params = cfg.params or {}
+
         # 3) start automático
         if sess.status == "CREATED":
             sess.status = "RUNNING"
@@ -100,13 +137,16 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             db.commit()
             db.refresh(sess)
 
-        detector = RepDetector()
-        last_metrics = {"reps": 0, "rom": 0.0, "cadence": None, "alerts": []}
-        had_valid_metrics = False
-
         await websocket.send_json(
             {"type": "ready", "session_id": session_id, "status": sess.status}
         )
+
+        try:
+            analyzer = create_analyzer(analysis_kind)
+        except ValueError as e:
+            await websocket.send_json({"type": "error", "detail": str(e)})
+            await websocket.close(code=1008)
+            return
 
         # 4) loop de frames
         while True:
@@ -134,7 +174,12 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             keypoints = runtime.infer_keypoints(bgr)
             if not keypoints:
                 await websocket.send_json(
-                    {"type": "metrics", "session_id": session_id, "ok": False, "reason": "no_pose"}
+                    {
+                        "type": "metrics",
+                        "session_id": session_id,
+                        "ok": False,
+                        "motivo": "Nenhuma pessoa detectada na câmera.",
+                    }
                 )
                 continue
 
@@ -150,19 +195,32 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
                 )
                 continue
 
-            metrics = detector.update(rom)
-            last_metrics = metrics
+            metrics = analyzer.run(rom, analysis_params)
+
+            low_deg = float(analysis_params.get("low_deg", 95))
+            high_deg = float(analysis_params.get("high_deg", 170))
+
+            last_metrics = {
+                "reps": metrics["reps"],
+                "rom": float(metrics["rom"]),
+                "cadence": metrics.get("cadence"),
+                "alertas": metrics.get("alertas", []),
+                "fase": metrics.get("phase"),
+                "ok": metrics.get("ok", True),
+            }
             had_valid_metrics = True
 
             await websocket.send_json(
                 {
                     "type": "metrics",
                     "session_id": session_id,
-                    "ok": True,
-                    "reps": metrics["reps"],
-                    "rom": float(metrics["rom"]),
-                    "cadence": metrics["cadence"],
-                    "alerts": metrics["alerts"],
+                    "ok": last_metrics["ok"],
+                    "repeticoes": last_metrics["reps"],
+                    "angulo_joelho": last_metrics["rom"],
+                    "cadencia": last_metrics["cadence"],
+                    "fase": last_metrics.get("fase"),
+                    "alertas": last_metrics["alertas"],
+                    "limites": {"min": low_deg, "max": high_deg},
                 }
             )
 
@@ -175,11 +233,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
         except Exception:
             pass
     finally:
-        # 5) persistir summary final + finalizar sessão
         try:
-            if had_valid_metrics:
-                if db and sess:
-                    # grava/atualiza summary final (apenas no final)
+            if db and sess:
+                if had_valid_metrics:
                     summary = db.execute(
                         select(SessionSummaryModel).where(
                             SessionSummaryModel.session_id == session_id
@@ -190,24 +246,23 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
                         summary.reps = int(last_metrics.get("reps", 0))
                         summary.rom = float(last_metrics.get("rom", 0.0))
                         summary.cadence = last_metrics.get("cadence")
-                        summary.alerts = last_metrics.get("alerts", [])
+                        summary.alerts = last_metrics.get("alertas", [])
                     else:
                         summary = SessionSummaryModel(
                             session_id=session_id,
                             reps=int(last_metrics.get("reps", 0)),
                             rom=float(last_metrics.get("rom", 0.0)),
                             cadence=last_metrics.get("cadence"),
-                            alerts=last_metrics.get("alerts", []),
+                            alerts=last_metrics.get("alertas", []),
                         )
                         db.add(summary)
 
-                    # finaliza sessão
-                    if sess.status != "FINISHED":
-                        sess.status = "FINISHED"
-                        sess.finished_at = datetime.utcnow()
-                        db.add(sess)
+                if sess.status != "FINISHED":
+                    sess.status = "FINISHED"
+                    sess.finished_at = datetime.utcnow()
+                    db.add(sess)
 
-                    db.commit()
+                db.commit()
         finally:
             if db:
                 db.close()
