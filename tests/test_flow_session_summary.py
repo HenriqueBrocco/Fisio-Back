@@ -7,7 +7,7 @@ def _login_token(client) -> str:
     password = os.getenv("TEST_PRO_PASSWORD", "123456")
 
     r = client.post(
-        "/auth/login",
+        "/v1/auth/login",
         data={"username": email, "password": password},  # OAuth2 form
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -29,7 +29,7 @@ def test_full_flow_patient_assignment_session_summary(client):
         "email": f"paciente{unique}@teste.com",
         "password": "teste1234",
     }
-    r = client.post("/patients", json=patient_payload, headers=headers)
+    r = client.post("/v1/patients", json=patient_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     patient = r.json()
     patient_id = patient["id"]
@@ -41,7 +41,7 @@ def test_full_flow_patient_assignment_session_summary(client):
         "body_focus": "TRUNK",
         "analysis_kind": "V1_LITE_THRESHOLDS",
     }
-    r = client.post("/exercises", json=exercise_payload, headers=headers)
+    r = client.post("/v1/exercises", json=exercise_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     exercise = r.json()
     exercise_id = exercise["id"]
@@ -52,7 +52,7 @@ def test_full_flow_patient_assignment_session_summary(client):
         "patient_user_id": patient_id,
         "params": {"threshold": 0.8, "side": "R"},
     }
-    r = client.post("/assignments/configs", json=config_payload, headers=headers)
+    r = client.post("/v1/assignments/configs", json=config_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     cfg = r.json()
     config_id = cfg["id"]
@@ -65,7 +65,7 @@ def test_full_flow_patient_assignment_session_summary(client):
         "schedule": "DAILY",
         "active": True,
     }
-    r = client.post("/assignments", json=assignment_payload, headers=headers)
+    r = client.post("/v1/assignments", json=assignment_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     assignment = r.json()
     assignment_id = assignment["id"]
@@ -76,13 +76,13 @@ def test_full_flow_patient_assignment_session_summary(client):
         "assignment_id": assignment_id,
         "config_snapshot": {"threshold": 0.8, "side": "R"},
     }
-    r = client.post(f"/patients/{patient_id}/sessions", json=session_payload, headers=headers)
+    r = client.post(f"/v1/patients/{patient_id}/sessions", json=session_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     session = r.json()
     session_id = session["id"]
 
     # 5.1) start session (core endpoint)
-    r = client.post(f"/sessions/{session_id}/start", headers=headers)
+    r = client.post(f"/v1/sessions/{session_id}/start", headers=headers)
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "RUNNING"
     s_started = r.json()
@@ -95,14 +95,14 @@ def test_full_flow_patient_assignment_session_summary(client):
         "cadence": 1.2,
         "alerts": ["ok"],
     }
-    r = client.post(f"/sessions/{session_id}/summary", json=summary_payload, headers=headers)
+    r = client.post(f"/v1/sessions/{session_id}/summary", json=summary_payload, headers=headers)
     assert r.status_code in (200, 201), r.text
     summary = r.json()
     assert summary["session_id"] == session_id
     assert summary["reps"] == 10
 
     # 7) lê summary
-    r = client.get(f"/sessions/{session_id}/summary", headers=headers)
+    r = client.get(f"/v1/sessions/{session_id}/summary", headers=headers)
     assert r.status_code == 200, r.text
     summary2 = r.json()
     assert summary2["session_id"] == session_id
@@ -110,13 +110,13 @@ def test_full_flow_patient_assignment_session_summary(client):
 
     # 7.1) Finaliza summario
     r = client.post(
-        f"/sessions/{session_id}/finalize", json={"reps": 10, "rom": 35.5}, headers=headers
+        f"/v1/sessions/{session_id}/finalize", json={"reps": 10, "rom": 35.5}, headers=headers
     )
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "FINISHED"
 
     # 8) finish session (core endpoint)
-    r = client.post(f"/sessions/{session_id}/finish", headers=headers)
+    r = client.post(f"/v1/sessions/{session_id}/finish", headers=headers)
     assert r.status_code == 200, r.text
     s_finished = r.json()
     assert s_finished["status"] == "FINISHED"

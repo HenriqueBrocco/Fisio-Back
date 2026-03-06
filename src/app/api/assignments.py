@@ -1,11 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from app.api.deps import get_current_user, require_role
 from app.db.session import get_db
-from app.models.assignment import Assignment, ExerciseConfig
-from app.models.exercise import Exercise
 from app.models.user import User
 from app.schemas.assignment import (
     AssignmentCreate,
@@ -14,177 +11,124 @@ from app.schemas.assignment import (
     ExerciseConfigCreate,
     ExerciseConfigOut,
 )
+from app.services.assignments_service import (
+    BadRequestError,
+    NotFoundError,
+    create_assignment,
+    create_exercise_config,
+    get_assignment,
+    get_config,
+    list_assignments,
+    list_configs,
+    update_assignment,
+)
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
 
 
-# -------------------------
-# ExerciseConfig endpoints
-# -------------------------
+# -------- Exercise Configs --------
 
 
 @router.post("/configs", response_model=ExerciseConfigOut, status_code=status.HTTP_201_CREATED)
-def create_exercise_config(
+def create_config_endpoint(
     payload: ExerciseConfigCreate,
     db: DBSession = Depends(get_db),
     _=Depends(require_role("PRO")),
 ):
-    # valida FK de exercise e patient
-    ex = db.execute(select(Exercise).where(Exercise.id == payload.exercise_id)).scalar_one_or_none()
-    if not ex:
-        raise HTTPException(status_code=404, detail="exercise_id não encontrado")
-
-    patient = db.execute(
-        select(User).where(User.id == payload.patient_user_id)
-    ).scalar_one_or_none()
-    if not patient:
-        raise HTTPException(status_code=404, detail="patient_user_id não encontrado")
-
-    cfg = ExerciseConfig(
-        exercise_id=payload.exercise_id,
-        patient_user_id=payload.patient_user_id,
-        params=payload.params,
-    )
-    db.add(cfg)
-    db.commit()
-    db.refresh(cfg)
-    return cfg
+    try:
+        return create_exercise_config(
+            db, payload.exercise_id, payload.patient_user_id, payload.params
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/configs", response_model=list[ExerciseConfigOut])
-def list_configs(
+def list_configs_endpoint(
     db: DBSession = Depends(get_db),
     patient_user_id: str | None = None,
     exercise_id: int | None = None,
 ):
-    q = select(ExerciseConfig)
-    if patient_user_id:
-        q = q.where(ExerciseConfig.patient_user_id == patient_user_id)
-    if exercise_id is not None:
-        q = q.where(ExerciseConfig.exercise_id == exercise_id)
-    return db.execute(q).scalars().all()
+    return list_configs(db, patient_user_id, exercise_id)
 
 
 @router.get("/configs/{config_id}", response_model=ExerciseConfigOut)
-def get_config(config_id: int, db: DBSession = Depends(get_db)):
-    cfg = db.execute(
-        select(ExerciseConfig).where(ExerciseConfig.id == config_id)
-    ).scalar_one_or_none()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="Config não encontrada")
-    return cfg
+def get_config_endpoint(config_id: int, db: DBSession = Depends(get_db)):
+    try:
+        return get_config(db, config_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-# -------------------------
-# Assignment endpoints
-# -------------------------
+# -------- Assignments --------
 
 
 @router.post("", response_model=AssignmentOut, status_code=status.HTTP_201_CREATED)
-def create_assignment(
+def create_assignment_endpoint(
     payload: AssignmentCreate,
     db: DBSession = Depends(get_db),
     _=Depends(require_role("PRO")),
 ):
-    # valida exercise
-    ex = db.execute(select(Exercise).where(Exercise.id == payload.exercise_id)).scalar_one_or_none()
-    if not ex:
-        raise HTTPException(status_code=404, detail="exercise_id não encontrado")
-
-    # valida patient
-    patient = db.execute(
-        select(User).where(User.id == payload.patient_user_id)
-    ).scalar_one_or_none()
-    if not patient:
-        raise HTTPException(status_code=404, detail="patient_user_id não encontrado")
-
-    # valida config existe e pertence ao mesmo patient+exercise
-    cfg = db.execute(
-        select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)
-    ).scalar_one_or_none()
-    if not cfg:
-        raise HTTPException(status_code=404, detail="config_id não encontrado")
-
-    if cfg.patient_user_id != payload.patient_user_id or cfg.exercise_id != payload.exercise_id:
-        raise HTTPException(
-            status_code=400, detail="config_id não pertence ao patient/exercise informado"
+    try:
+        return create_assignment(
+            db=db,
+            patient_user_id=payload.patient_user_id,
+            exercise_id=payload.exercise_id,
+            config_id=payload.config_id,
+            schedule=payload.schedule,
+            active=payload.active,
         )
-
-    a = Assignment(
-        patient_user_id=payload.patient_user_id,
-        exercise_id=payload.exercise_id,
-        config_id=payload.config_id,
-        schedule=payload.schedule,
-        active=payload.active,
-    )
-    db.add(a)
-    db.commit()
-    db.refresh(a)
-    return a
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", response_model=list[AssignmentOut])
-def list_assignments(
+def list_assignments_endpoint(
     db: DBSession = Depends(get_db),
     user: User = Depends(get_current_user),
     patient_user_id: str | None = None,
 ):
-    # PRO pode listar qualquer um; PATIENT só lista o próprio
-    q = select(Assignment)
-    if user.role == "PATIENT":
-        q = q.where(Assignment.patient_user_id == user.id)
-    elif patient_user_id:
-        q = q.where(Assignment.patient_user_id == patient_user_id)
-
-    return db.execute(q).scalars().all()
+    return list_assignments(db, user, patient_user_id)
 
 
 @router.get("/{assignment_id}", response_model=AssignmentOut)
-def get_assignment(
+def get_assignment_endpoint(
     assignment_id: int,
     db: DBSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    a = db.execute(select(Assignment).where(Assignment.id == assignment_id)).scalar_one_or_none()
-    if not a:
-        raise HTTPException(status_code=404, detail="Assignment não encontrado")
-
-    if user.role == "PATIENT" and a.patient_user_id != user.id:
-        raise HTTPException(status_code=403, detail="Sem permissão")
-
-    return a
+    try:
+        a = get_assignment(db, user, assignment_id)
+        return a
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestError as e:
+        # aqui usamos 403 para permissão
+        if str(e) == "Sem permissão":
+            raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.put("/{assignment_id}", response_model=AssignmentOut)
-def update_assignment(
+def update_assignment_endpoint(
     assignment_id: int,
     payload: AssignmentUpdate,
     db: DBSession = Depends(get_db),
     _=Depends(require_role("PRO")),
 ):
-    a = db.execute(select(Assignment).where(Assignment.id == assignment_id)).scalar_one_or_none()
-    if not a:
-        raise HTTPException(status_code=404, detail="Assignment não encontrado")
-
-    if payload.config_id is not None:
-        cfg = db.execute(
-            select(ExerciseConfig).where(ExerciseConfig.id == payload.config_id)
-        ).scalar_one_or_none()
-        if not cfg:
-            raise HTTPException(status_code=404, detail="config_id não encontrado")
-        # garante coerência com patient/exercise
-        if cfg.patient_user_id != a.patient_user_id or cfg.exercise_id != a.exercise_id:
-            raise HTTPException(
-                status_code=400, detail="config_id não pertence ao patient/exercise do assignment"
-            )
-        a.config_id = payload.config_id
-
-    if payload.schedule is not None:
-        a.schedule = payload.schedule
-    if payload.active is not None:
-        a.active = payload.active
-
-    db.add(a)
-    db.commit()
-    db.refresh(a)
-    return a
+    try:
+        return update_assignment(
+            db=db,
+            assignment_id=assignment_id,
+            schedule=payload.schedule,
+            active=payload.active,
+            config_id=payload.config_id,
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestError as e:
+        raise HTTPException(status_code=400, detail=str(e))

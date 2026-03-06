@@ -1,7 +1,7 @@
 """check metadata
 
 Revision ID: f9380c102e1b
-Revises: 
+Revises:
 Create Date: 2026-01-30 16:40:19.714933
 
 """

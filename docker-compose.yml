@@ -34,5 +34,20 @@ services:
     volumes:
       - .:/app
 
+  api-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fisio_api_dev
+    environment:
+      DATABASE_URL: postgresql+psycopg://fisio:fisio@db:5432/fisio
+      SECRET_KEY: ${SECRET_KEY:-change-me-please}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: sh -lc "pip install -r requirements/dev.txt && python -m pytest -q"
+    
 volumes:
   fisio_pgdata:

@@ -1,102 +1,85 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from app.api.deps import require_role
-from app.core.security import hash_password
 from app.db.session import get_db
-from app.models.user import User
 from app.schemas.patient import PatientCreate, PatientOut, PatientUpdate
+from app.services.patients_service import (
+    ConflictError,
+    NotFoundError,
+    create_patient,
+    delete_patient,
+    get_patient,
+    list_patients,
+    update_patient,
+)
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
-# def hash_password(password: str) -> str:
-#    return hashlib.sha256(password.encode("utf-8")).hexdigest()
-
 
 @router.post("", response_model=PatientOut, status_code=status.HTTP_201_CREATED)
-def create_patient(
-    payload: PatientCreate, db: Session = Depends(get_db), _=Depends(require_role("PRO"))
+def create_patient_endpoint(
+    payload: PatientCreate,
+    db: DBSession = Depends(get_db),
+    _=Depends(require_role("PRO")),
 ):
-    # email único
-    exists = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
-    if exists:
-        raise HTTPException(status_code=409, detail="Email já cadastrado.")
-
-    patient = User(
-        role="PATIENT",
-        name=payload.name,
-        email=payload.email,
-        password_hash=hash_password(payload.password),
-    )
-
-    db.add(patient)
-    db.commit()
-    db.refresh(patient)
-    return patient
+    try:
+        return create_patient(db, payload.name, payload.email, payload.password)
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get("", response_model=list[PatientOut])
-def list_patients(
-    skip: int = 0, limit: int = 50, db: Session = Depends(get_db), _=Depends(require_role("PRO"))
+def list_patients_endpoint(
+    skip: int = 0,
+    limit: int = 50,
+    db: DBSession = Depends(get_db),
+    _=Depends(require_role("PRO")),
 ):
-    q = select(User).where(User.role == "PATIENT").offset(skip).limit(limit)
-    patients = db.execute(q).scalars().all()
-    return patients
+    return list_patients(db, skip=skip, limit=limit)
 
 
 @router.get("/{patient_id}", response_model=PatientOut)
-def get_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
-    patient = db.execute(
-        select(User).where(User.id == patient_id, User.role == "PATIENT")
-    ).scalar_one_or_none()
-
-    if not patient:
-        raise HTTPException(status_code=404, detail="Paciente não encontrado.")
-    return patient
+def get_patient_endpoint(
+    patient_id: str,
+    db: DBSession = Depends(get_db),
+    _=Depends(require_role("PRO")),
+):
+    try:
+        return get_patient(db, patient_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.put("/{patient_id}", response_model=PatientOut)
-def update_patient(
+def update_patient_endpoint(
     patient_id: str,
     payload: PatientUpdate,
-    db: Session = Depends(get_db),
+    db: DBSession = Depends(get_db),
     _=Depends(require_role("PRO")),
 ):
-    patient = db.execute(
-        select(User).where(User.id == patient_id, User.role == "PATIENT")
-    ).scalar_one_or_none()
-
-    if not patient:
-        raise HTTPException(status_code=404, detail="Paciente não encontrado.")
-
-    if payload.email and payload.email != patient.email:
-        exists = db.execute(select(User).where(User.email == payload.email)).scalar_one_or_none()
-        if exists:
-            raise HTTPException(status_code=409, detail="Email já cadastrado.")
-
-    if payload.name is not None:
-        patient.name = payload.name
-    if payload.email is not None:
-        patient.email = payload.email
-    if payload.password is not None:
-        patient.password_hash = hash_password(payload.password)
-
-    db.add(patient)
-    db.commit()
-    db.refresh(patient)
-    return patient
+    try:
+        return update_patient(
+            db=db,
+            patient_id=patient_id,
+            name=payload.name,
+            email=payload.email,
+            password=payload.password,
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_patient(patient_id: str, db: Session = Depends(get_db), _=Depends(require_role("PRO"))):
-    patient = db.execute(
-        select(User).where(User.id == patient_id, User.role == "PATIENT")
-    ).scalar_one_or_none()
-
-    if not patient:
-        raise HTTPException(status_code=404, detail="Paciente não encontrado.")
-
-    db.delete(patient)
-    db.commit()
-    return None
+def delete_patient_endpoint(
+    patient_id: str,
+    db: DBSession = Depends(get_db),
+    _=Depends(require_role("PRO")),
+):
+    try:
+        delete_patient(db, patient_id)
+        return None
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))

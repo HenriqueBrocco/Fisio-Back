@@ -6,7 +6,7 @@ import urllib.parse
 import requests
 from websocket import create_connection
 
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000/v1/")
 WS_BASE = os.getenv("WS_BASE", "ws://127.0.0.1:8000")
 
 PRO_EMAIL = os.getenv("TEST_PRO_EMAIL", "admin@admin.com")

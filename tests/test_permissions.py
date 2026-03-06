@@ -8,7 +8,7 @@ from jose import jwt
 
 def _login_token(client, email: str, password: str) -> str:
     r = client.post(
-        "/auth/login",
+        "/v1/auth/login",
         data={"username": email, "password": password},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -30,7 +30,7 @@ def _auth_headers(token: str) -> dict:
 
 def _create_patient(client, pro_token: str, email: str, password: str = "teste1234") -> dict:
     payload = {"name": "Paciente", "email": email, "password": password}
-    r = client.post("/patients", json=payload, headers=_auth_headers(pro_token))
+    r = client.post("/v1/patients", json=payload, headers=_auth_headers(pro_token))
     assert r.status_code in (200, 201), r.text
     return r.json()
 
@@ -43,7 +43,7 @@ def _create_exercise(client, pro_token: str) -> int:
         "body_focus": "TRUNK",
         "analysis_kind": "V1_LITE_THRESHOLDS",
     }
-    r = client.post("/exercises", json=payload, headers=_auth_headers(pro_token))
+    r = client.post("/v1/exercises", json=payload, headers=_auth_headers(pro_token))
     assert r.status_code in (200, 201), r.text
     return r.json()["id"]
 
@@ -54,7 +54,7 @@ def _create_config(client, pro_token: str, patient_id: str, exercise_id: int) ->
         "patient_user_id": patient_id,
         "params": {"threshold": 0.8},
     }
-    r = client.post("/assignments/configs", json=payload, headers=_auth_headers(pro_token))
+    r = client.post("/v1/assignments/configs", json=payload, headers=_auth_headers(pro_token))
     assert r.status_code in (200, 201), r.text
     return r.json()["id"]
 
@@ -69,7 +69,7 @@ def _create_assignment(
         "schedule": "DAILY",
         "active": True,
     }
-    r = client.post("/assignments", json=payload, headers=_auth_headers(pro_token))
+    r = client.post("/v1/assignments", json=payload, headers=_auth_headers(pro_token))
     assert r.status_code in (200, 201), r.text
     return r.json()["id"]
 
@@ -79,7 +79,7 @@ def _create_session(
 ) -> str:
     payload = {"exercise_id": exercise_id, "assignment_id": assignment_id, "config_snapshot": {}}
     r = client.post(
-        f"/patients/{patient_id}/sessions", json=payload, headers=_auth_headers(pro_token)
+        f"/v1/patients/{patient_id}/sessions", json=payload, headers=_auth_headers(pro_token)
     )
     assert r.status_code in (200, 201), r.text
     return r.json()["id"]
@@ -123,11 +123,11 @@ def test_patient_cannot_access_other_patient_session(client):
         patient1_token = _patient_token_via_jwt(p1["id"])
 
     # Patient1 pode acessar sua sessão
-    r = client.get(f"/sessions/{s1}", headers=_auth_headers(patient1_token))
+    r = client.get(f"/v1/sessions/{s1}", headers=_auth_headers(patient1_token))
     assert r.status_code == 200, r.text
 
     # Patient1 NÃO pode acessar sessão do Patient2
-    r = client.get(f"/sessions/{s2}", headers=_auth_headers(patient1_token))
+    r = client.get(f"/v1/sessions/{s2}", headers=_auth_headers(patient1_token))
     assert r.status_code == 403, r.text
 
 
@@ -146,7 +146,7 @@ def test_patient_cannot_access_other_patient_summary(client):
 
     # cria summary do patient2 com PRO (permitido)
     r = client.post(
-        f"/sessions/{s2}/summary",
+        f"/v1/sessions/{s2}/summary",
         json={"reps": 1, "rom": 10.0, "cadence": 1.0, "alerts": []},
         headers=_auth_headers(pro),
     )
@@ -159,7 +159,7 @@ def test_patient_cannot_access_other_patient_summary(client):
         patient1_token = _patient_token_via_jwt(p1["id"])
 
     # Patient1 NÃO pode ver summary do Patient2
-    r = client.get(f"/sessions/{s2}/summary", headers=_auth_headers(patient1_token))
+    r = client.get(f"/v1/sessions/{s2}/summary", headers=_auth_headers(patient1_token))
     assert r.status_code == 403, r.text
 
 
@@ -175,16 +175,16 @@ def test_pro_can_access_any_session_and_summary(client):
     s = _create_session(client, pro, p["id"], ex_id, asg)
 
     # PRO acessa sessão
-    r = client.get(f"/sessions/{s}", headers=_auth_headers(pro))
+    r = client.get(f"/v1/sessions/{s}", headers=_auth_headers(pro))
     assert r.status_code == 200, r.text
 
     # PRO pode criar/ler summary
     r = client.post(
-        f"/sessions/{s}/summary",
+        f"/v1/sessions/{s}/summary",
         json={"reps": 2, "rom": 15.5, "cadence": 1.1, "alerts": ["ok"]},
         headers=_auth_headers(pro),
     )
     assert r.status_code in (200, 201), r.text
 
-    r = client.get(f"/sessions/{s}/summary", headers=_auth_headers(pro))
+    r = client.get(f"/v1/sessions/{s}/summary", headers=_auth_headers(pro))
     assert r.status_code == 200, r.text

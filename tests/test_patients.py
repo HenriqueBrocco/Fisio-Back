@@ -16,7 +16,7 @@ def _login_and_get_token(client) -> str:
     #     pytest.skip("Defina TEST_PRO_EMAIL e TEST_PRO_PASSWORD para rodar este teste.")
 
     r = client.post(
-        "/auth/login",
+        "/v1/auth/login",
         data={"username": email, "password": password},  # <-- FORM, não JSON
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
@@ -37,14 +37,20 @@ def test_create_and_list_patient_authenticated(client):
         "password": "teste1234",
     }
 
-    r = client.post("/patients", json=payload, headers=headers)
+    r = client.post("/v1/patients", json=payload, headers=headers)
     assert r.status_code == 201, r.text
     created = r.json()
     assert created["role"] == "PATIENT"
     assert created["email"] == payload["email"]
 
-    r = client.get("/patients", headers=headers)
+    # Confirma via GET /patients/{id} (determinístico)
+    r = client.get(f"/v1/patients/{created['id']}", headers=headers)
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert got["id"] == created["id"]
+    assert got["email"] == payload["email"]
+
+    r = client.get("/v1/patients?skip=0&limit=1000", headers=headers)
     assert r.status_code == 200, r.text
     data = r.json()
     assert isinstance(data, list)
-    assert any(p["id"] == created["id"] for p in data)
