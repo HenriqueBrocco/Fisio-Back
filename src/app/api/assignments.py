@@ -28,10 +28,8 @@ from app.services.exercise_config_service import BadRequestError as CfgBadReques
 from app.services.exercise_config_service import BadRequestError as SessBadRequest
 from app.services.exercise_config_service import NotFoundError as CfgNotFound
 from app.services.exercise_config_service import NotFoundError as SessNotFound
-from app.services.exercise_config_service import (
-    create_session_from_assignment,
-    update_config_params,
-)
+from app.services.exercise_config_service import update_config_params
+from app.services.patient_sessions_service import create_session_from_assignment
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
 
