@@ -23,6 +23,7 @@ def create_patient_session(
     payload: SessionCreate,
     db: DBSession = Depends(get_db),
     _=Depends(require_role("PRO")),
+    user: User = Depends(get_current_user),
 ):
     try:
         return create_session_for_patient(
@@ -31,6 +32,7 @@ def create_patient_session(
             exercise_id=payload.exercise_id,
             assignment_id=payload.assignment_id,
             config_snapshot=payload.config_snapshot,
+            pro_user=user,
         )
     except NotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -18,8 +18,15 @@ class SessionNotFoundError(Exception):
     pass
 
 
-def ensure_session_access(user: User, sess: SessionModel) -> None:
-    if user.role == "PATIENT" and sess.patient_user_id != user.id:
+def ensure_session_access(user: User, sess: SessionModel, db: DBSession) -> None:
+    if user.role == "PATIENT":
+        if sess.patient_user_id != user.id:
+            raise SessionAccessError("Sem permissão para esta sessão.")
+        return
+
+    # PRO: valida ownership do paciente
+    patient = db.execute(select(User).where(User.id == sess.patient_user_id)).scalar_one_or_none()
+    if not patient or patient.pro_owner_id != user.id:
         raise SessionAccessError("Sem permissão para esta sessão.")
 
 

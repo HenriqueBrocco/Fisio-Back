@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.models.assignment import Assignment, ExerciseConfig
 from app.models.exercise import Exercise
 from app.models.user import User
+from app.services.ownership import OwnershipError, ensure_pro_owns_patient
 
 
 class NotFoundError(Exception):
@@ -23,20 +24,25 @@ def _get_exercise(db: DBSession, exercise_id: int) -> Exercise:
     return ex
 
 
-def _get_patient(db: DBSession, patient_user_id: str) -> User:
+def _get_patient(db: DBSession, patient_user_id: str, pro_user: User | None = None) -> User:
     patient = db.execute(select(User).where(User.id == patient_user_id)).scalar_one_or_none()
     if not patient:
         raise NotFoundError("patient_user_id não encontrado")
     if patient.role != "PATIENT":
         raise BadRequestError("user_id informado não é um paciente")
+    if pro_user is not None and pro_user.role == "PRO":
+        try:
+            ensure_pro_owns_patient(pro_user, patient)
+        except OwnershipError:
+            raise BadRequestError("Sem permissão para este paciente")
     return patient
 
 
 def create_exercise_config(
-    db: DBSession, exercise_id: int, patient_user_id: str, params: dict
+    db: DBSession, exercise_id: int, patient_user_id: str, params: dict, pro_user: User
 ) -> ExerciseConfig:
     _get_exercise(db, exercise_id)
-    _get_patient(db, patient_user_id)
+    _get_patient(db, patient_user_id, pro_user=pro_user)
 
     cfg = ExerciseConfig(
         exercise_id=exercise_id,
@@ -76,9 +82,10 @@ def create_assignment(
     config_id: int,
     schedule: str,
     active: bool,
+    pro_user: User,
 ) -> Assignment:
     _get_exercise(db, exercise_id)
-    _get_patient(db, patient_user_id)
+    _get_patient(db, patient_user_id, pro_user=pro_user)
 
     cfg = db.execute(
         select(ExerciseConfig).where(ExerciseConfig.id == config_id)
