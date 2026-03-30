@@ -6,6 +6,7 @@ from app.api.exercises import router as exercises_router
 from app.api.health import router as health_router
 from app.api.infer_ws import router as infer_ws_router
 from app.api.me import router as me_router
+from app.api.my import router as my_router
 from app.api.patient_sessions import router as patient_sessions_router
 from app.api.patients import router as patients_router
 from app.api.sessions import router as sessions_router
@@ -21,4 +22,5 @@ api_router.include_router(assignments_router)
 api_router.include_router(sessions_router)
 api_router.include_router(infer_ws_router)
 api_router.include_router(me_router)
+api_router.include_router(my_router)
 # api_router.include_router(infer_router)

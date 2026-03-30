@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.core.security import hash_password
 from app.models.user import User
+from app.services.ownership import ensure_pro_owns_patient
 
 
 class NotFoundError(Exception):
@@ -15,7 +16,7 @@ class ConflictError(Exception):
     pass
 
 
-def create_patient(db: DBSession, name: str, email: str, password: str) -> User:
+def create_patient(db: DBSession, pro_user: User, name: str, email: str, password: str) -> User:
     exists = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
     if exists:
         raise ConflictError("Email já cadastrado.")
@@ -25,6 +26,7 @@ def create_patient(db: DBSession, name: str, email: str, password: str) -> User:
         name=name,
         email=email,
         password_hash=hash_password(password),
+        pro_owner_id=pro_user.id,
     )
     db.add(patient)
     db.commit()
@@ -32,10 +34,10 @@ def create_patient(db: DBSession, name: str, email: str, password: str) -> User:
     return patient
 
 
-def list_patients(db: DBSession, skip: int = 0, limit: int = 50) -> list[User]:
+def list_patients(db: DBSession, pro_user: User, skip: int = 0, limit: int = 50) -> list[User]:
     q = (
         select(User)
-        .where(User.role == "PATIENT")
+        .where(User.role == "PATIENT", User.pro_owner_id == pro_user.id)
         .order_by(User.created_at.desc())
         .offset(skip)
         .limit(limit)
@@ -43,12 +45,13 @@ def list_patients(db: DBSession, skip: int = 0, limit: int = 50) -> list[User]:
     return db.execute(q).scalars().all()
 
 
-def get_patient(db: DBSession, patient_id: str) -> User:
+def get_patient(db: DBSession, pro_user: User, patient_id: str) -> User:
     patient = db.execute(
         select(User).where(User.id == patient_id, User.role == "PATIENT")
     ).scalar_one_or_none()
     if not patient:
         raise NotFoundError("Paciente não encontrado.")
+    ensure_pro_owns_patient(pro_user, patient)
     return patient
 
 
