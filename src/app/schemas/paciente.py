@@ -5,22 +5,22 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
-class PatientCreate(BaseModel):
-    name: str = Field(..., max_length=120)
+class PacienteCreate(BaseModel):
+    nome: str = Field(..., max_length=120)
     email: EmailStr
     password: str = Field(..., min_length=6, max_length=128)
 
 
-class PatientUpdate(BaseModel):
-    name: str | None = Field(None, max_length=120)
+class PacienteUpdate(BaseModel):
+    nome: str | None = Field(None, max_length=120)
     email: EmailStr | None = None
     password: str | None = Field(None, min_length=6, max_length=128)
 
 
-class PatientOut(BaseModel):
+class PacienteOut(BaseModel):
     id: str
-    role: str
-    name: str
+    perfil: str
+    nome: str
     email: EmailStr
 
     model_config = ConfigDict(from_attributes=True)

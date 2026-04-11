@@ -1,51 +1,51 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
-from app.api.deps import get_current_user
+from app.api.dependencias import get_usuario_atual
 from app.db.session import get_db
-from app.models.user import User
-from app.schemas.session import (
-    SessionFinalizeIn,
-    SessionOut,
-    SessionSummaryIn,
-    SessionSummaryOut,
+from app.models.usuario import Usuario
+from app.schemas.sessao import (
+    SessaoFinalizadaIn,
+    SessaoOut,
+    ResumoSessaoIn,
+    ResumoSessaoOut,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     SessionAccessError,
     SessionNotFoundError,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     finalize_session as svc_finalize_session,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     finish_session as svc_finish_session,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     get_session as svc_get_session,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     get_summary as svc_get_summary,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     start_session as svc_start_session,
 )
-from app.services.sessions_service import (
+from app.services.sessoes_service import (
     upsert_summary as svc_upsert_summary,
 )
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+sessoes_router = APIRouter(prefix="/sessoes", tags=["Sessões"])
 
 
-@router.get("/{session_id}", response_model=SessionOut)
+@sessoes_router.get("/{session_id}", response_model=SessaoOut)
 def get_session(
     session_id: str,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         sess = svc_get_session(db, session_id)
         # valida permissão (mantendo o get_session do service "puro")
-        if user.role == "PATIENT" and sess.patient_user_id != user.id:
+        if user.perfil == "PATIENT" and sess.paciente_usuario_id != user.id:
             raise SessionAccessError("Sem permissão para esta sessão.")
         return sess
     except SessionNotFoundError as e:
@@ -54,11 +54,11 @@ def get_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.post("/{session_id}/start", response_model=SessionOut)
+@sessoes_router.post("/{session_id}/start", response_model=SessaoOut)
 def start_session(
     session_id: str,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return svc_start_session(db, user, session_id)
@@ -68,11 +68,11 @@ def start_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.post("/{session_id}/finish", response_model=SessionOut)
+@sessoes_router.post("/{session_id}/finish", response_model=SessaoOut)
 def finish_session(
     session_id: str,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return svc_finish_session(db, user, session_id)
@@ -82,26 +82,26 @@ def finish_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.post(
+@sessoes_router.post(
     "/{session_id}/summary",
-    response_model=SessionSummaryOut,
+    response_model=ResumoSessaoOut,
     status_code=status.HTTP_201_CREATED,
 )
 def upsert_session_summary(
     session_id: str,
-    payload: SessionSummaryIn,
+    payload: ResumoSessaoIn,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return svc_upsert_summary(
             db=db,
             user=user,
             session_id=session_id,
-            reps=payload.reps,
-            rom=payload.rom,
-            cadence=payload.cadence,
-            alerts=payload.alerts,
+            reps=payload.repeticoes,
+            rom=payload.adm,
+            cadence=payload.cadencia,
+            alerts=payload.alertas,
         )
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -109,11 +109,11 @@ def upsert_session_summary(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.get("/{session_id}/summary", response_model=SessionSummaryOut)
+@sessoes_router.get("/{session_id}/summary", response_model=ResumoSessaoOut)
 def get_session_summary(
     session_id: str,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return svc_get_summary(db, user, session_id)
@@ -123,22 +123,22 @@ def get_session_summary(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@router.post("/{session_id}/finalize", response_model=SessionOut)
+@sessoes_router.post("/{session_id}/finalize", response_model=SessaoOut)
 def finalize_session(
     session_id: str,
-    payload: SessionFinalizeIn,
+    payload: SessaoFinalizadaIn,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return svc_finalize_session(
             db=db,
             user=user,
             session_id=session_id,
-            reps=payload.reps,
-            rom=payload.rom,
-            cadence=payload.cadence,
-            alerts=payload.alerts,
+            reps=payload.repeticoes,
+            rom=payload.adm,
+            cadence=payload.cadencia,
+            alerts=payload.alertas,
         )
     except SessionNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

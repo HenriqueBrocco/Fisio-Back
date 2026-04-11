@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI 
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router
+from app.api.router import api_router 
 from app.core.exception_handlers import register_exception_handlers
 from app.core.logging import setup_logging
 from app.middleware.request_logging import RequestLoggingMiddleware

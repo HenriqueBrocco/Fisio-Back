@@ -7,11 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from app.db.session import SessionLocal  # usa o mesmo SessionLocal do seu db/session.py
-from app.models.assignment import Assignment, ExerciseConfig
-from app.models.exercise import Exercise
-from app.models.session import Session as SessionModel
-from app.models.session import SessionSummary as SessionSummaryModel
-from app.models.user import User
+from app.models.prescricao import Prescricoes, ExercicioConfig
+from app.models.exercicio import Exercicios
+from app.models.sessao import Sessoes as SessionModel
+from app.models.sessao import ResumoSessao as SessionSummaryModel
+from app.models.usuario import Usuario
 from app.services.exercise_analysis.dispatcher import create_analyzer
 from app.services.pose_logic import rom_from_keypoints
 from app.services.pose_runtime import PoseRuntime
@@ -31,8 +31,8 @@ def _get_token_from_ws(websocket: WebSocket) -> str | None:
     return websocket.query_params.get("token")
 
 
-def _ensure_session_access(user: User, sess: SessionModel) -> None:
-    if user.role == "PATIENT" and sess.patient_user_id != user.id:
+def _ensure_session_access(user: Usuario, sess: SessionModel) -> None:
+    if user.perfil == "PATIENT" and sess.paciente_usuario_id != user.id:
         raise PermissionError("Sem permissão para esta sessão.")
 
 
@@ -61,7 +61,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
 
     # 2) abre sessão DB (sync) e valida sessão + permissão
     db: DBSession = SessionLocal()
-    user: User | None = None
+    user: Usuario | None = None
     sess: SessionModel | None = None
 
     try:
@@ -77,9 +77,9 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
 
         # Reusa sua função de validação de token / current user
         # Ajuste o import conforme seu projeto:
-        from app.api.deps import get_current_user_from_token  # crie essa função se não existir
+        from app.api.dependencias import get_usuario_atual_via_token  # crie essa função se não existir
 
-        user = get_current_user_from_token(db, token)
+        user = get_usuario_atual_via_token(db, token)
 
         # ---- valida sessão existe ----
         sess = db.execute(
@@ -99,7 +99,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             return
 
         assignment = db.execute(
-            select(Assignment).where(Assignment.id == sess.assignment_id)
+            select(Prescricoes).where(Prescricoes.id == sess.prescricao_id)
         ).scalar_one_or_none()
         if not assignment:
             await websocket.send_json(
@@ -109,7 +109,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             return
 
         exercise = db.execute(
-            select(Exercise).where(Exercise.id == assignment.exercise_id)
+            select(Exercicios).where(Exercicios.id == assignment.exercicio_id)
         ).scalar_one_or_none()
         if not exercise:
             await websocket.send_json({"type": "error", "detail": "Exercício não encontrado."})
@@ -117,7 +117,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             return
 
         cfg = db.execute(
-            select(ExerciseConfig).where(ExerciseConfig.id == assignment.config_id)
+            select(ExercicioConfig).where(ExercicioConfig.id == assignment.config_id)
         ).scalar_one_or_none()
         if not cfg:
             await websocket.send_json(
@@ -126,13 +126,13 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
             await websocket.close(code=1008)
             return
 
-        analysis_kind = exercise.analysis_kind
-        analysis_params = cfg.params or {}
+        analysis_kind = exercise.tipo_analise
+        analysis_params = cfg.parametros or {}
 
         # 3) start automático
         if sess.status == "CREATED":
             sess.status = "RUNNING"
-            sess.started_at = datetime.utcnow()
+            sess.iniciado_em = datetime.utcnow()
             db.add(sess)
             db.commit()
             db.refresh(sess)
@@ -238,15 +238,15 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
                 if had_valid_metrics:
                     summary = db.execute(
                         select(SessionSummaryModel).where(
-                            SessionSummaryModel.session_id == session_id
+                            SessionSummaryModel.sessao_id == session_id
                         )
                     ).scalar_one_or_none()
 
                     if summary:
-                        summary.reps = int(last_metrics.get("reps", 0))
-                        summary.rom = float(last_metrics.get("rom", 0.0))
-                        summary.cadence = last_metrics.get("cadence")
-                        summary.alerts = last_metrics.get("alertas", [])
+                        summary.repeticoes = int(last_metrics.get("reps", 0))
+                        summary.adm = float(last_metrics.get("rom", 0.0))
+                        summary.cadencia = last_metrics.get("cadence")
+                        summary.alertas = last_metrics.get("alertas", [])
                     else:
                         summary = SessionSummaryModel(
                             session_id=session_id,
@@ -259,7 +259,7 @@ async def ws_infer_session(websocket: WebSocket, session_id: str):
 
                 if sess.status != "FINISHED":
                     sess.status = "FINISHED"
-                    sess.finished_at = datetime.utcnow()
+                    sess.finalizado_em = datetime.utcnow()
                     db.add(sess)
 
                 db.commit()

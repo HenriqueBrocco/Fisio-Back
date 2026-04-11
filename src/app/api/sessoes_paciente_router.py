@@ -1,36 +1,36 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session as DBSession
 
-from app.api.deps import get_current_user, require_role
+from app.api.dependencias import get_usuario_atual, exigir_permissao
 from app.db.session import get_db
-from app.models.user import User
-from app.schemas.session import SessionCreate, SessionOut
-from app.services.patient_sessions_service import (
+from app.models.usuario import Usuario
+from app.schemas.sessao import SessaoCreate, SessaoOut
+from app.services.sessoes_paciente_service import (
     BadRequestError,
     NotFoundError,
     create_session_for_patient,
     list_sessions_for_patient,
 )
 
-router = APIRouter(prefix="/patients", tags=["patient-sessions"])
+sessoes_paciente_router = APIRouter(prefix="/pacientes", tags=["Sessões do Paciente"])
 
 
-@router.post(
-    "/{patient_id}/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED
+@sessoes_paciente_router.post(
+    "/{patient_id}/sessions", response_model=SessaoOut, status_code=status.HTTP_201_CREATED
 )
 def create_patient_session(
     patient_id: str,
-    payload: SessionCreate,
+    payload: SessaoCreate,
     db: DBSession = Depends(get_db),
-    _=Depends(require_role("PRO")),
-    user: User = Depends(get_current_user),
+    _=Depends(exigir_permissao("PRO")),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return create_session_for_patient(
             db=db,
             patient_id=patient_id,
-            exercise_id=payload.exercise_id,
-            assignment_id=payload.assignment_id,
+            exercise_id=payload.exercicio_id,
+            assignment_id=payload.prescricao_id,
             config_snapshot=payload.config_snapshot,
             pro_user=user,
         )
@@ -40,11 +40,11 @@ def create_patient_session(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{patient_id}/sessions", response_model=list[SessionOut])
+@sessoes_paciente_router.get("/{patient_id}/sessions", response_model=list[SessaoOut])
 def list_patient_sessions(
     patient_id: str,
     db: DBSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: Usuario = Depends(get_usuario_atual),
 ):
     try:
         return list_sessions_for_patient(db, user, patient_id)

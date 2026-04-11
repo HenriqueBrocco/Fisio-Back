@@ -20,7 +20,7 @@ except Exception:
     pass
 
 from app.core.security import hash_password  # noqa: E402
-from app.models.user import User  # noqa: E402
+from app.models.usuario import Usuario  # noqa: E402
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -42,16 +42,16 @@ def main():
         name = input("Nome: ").strip()
         password = input("Senha: ").strip()
 
-        exists = db.query(User).filter(User.email == email).first()
+        exists = db.query(Usuario).filter(Usuario.email == email).first()
         if exists:
             print("Já existe usuário com esse email.")
             return
 
-        pro = User(
-            role="PRO",
-            name=name,
+        pro = Usuario(
+            perfil="PRO",
+            nome=name,
             email=email,
-            password_hash=hash_password(password),
+            senha_hash=hash_password(password),
         )
         db.add(pro)
         db.commit()
