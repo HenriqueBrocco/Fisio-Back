@@ -137,11 +137,11 @@ def create_assignment(
         raise BadRequestError("config_id não pertence ao patient/exercise informado")
 
     a = Prescricoes(
-        patient_user_id=patient_user_id,
-        exercise_id=exercise_id,
+        paciente_usuario_id=patient_user_id,
+        exercicio_id=exercise_id,
         config_id=config_id,
-        schedule=schedule,
-        active=active,
+        frequencia=schedule,
+        ativo=active,
     )
     db.add(a)
     db.commit()
@@ -171,25 +171,17 @@ def get_assignment(db: DBSession, user: Usuario, assignment_id: int) -> Prescric
     return a
 
 
-def update_assignment(
-    db: DBSession,
-    assignment_id: int,
-    schedule: str | None,
-    active: bool | None,
-    config_id: int | None,
-) -> Prescricoes:
+def update_assignment(db: DBSession, assignment_id: int, schedule: str | None, active: bool | None, config_id: int | None,) -> Prescricoes:
     a = db.execute(select(Prescricoes).where(Prescricoes.id == assignment_id)).scalar_one_or_none()
     if not a:
-        raise NotFoundError("Assignment não encontrado")
+        raise NotFoundError("Prescrição não encontrada")
 
     if config_id is not None:
-        cfg = db.execute(
-            select(ExercicioConfig).where(ExercicioConfig.id == config_id)
-        ).scalar_one_or_none()
+        cfg = db.execute(select(ExercicioConfig).where(ExercicioConfig.id == config_id)).scalar_one_or_none()
         if not cfg:
             raise NotFoundError("config_id não encontrado")
         if cfg.paciente_usuario_id != a.paciente_usuario_id or cfg.exercicio_id != a.exercicio_id:
-            raise BadRequestError("config_id não pertence ao patient/exercise do assignment")
+            raise BadRequestError("config_id não pertence ao paciente/exercicio da prescrição")
         a.config_id = config_id
 
     if schedule is not None:

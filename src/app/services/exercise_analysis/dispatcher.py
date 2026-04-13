@@ -36,9 +36,7 @@ def create_analyzer(analysis_kind: str) -> Analyzer:
     if analysis_kind == "KNEE_EXTENSION_V1":
         state = KneeExtensionState()
 
-        def run(
-            rom_deg: float, params: dict[str, Any] | None = None, ts_ms: int | None = None
-        ) -> dict[str, Any]:
+        def run(rom_deg: float, params: dict[str, Any] | None = None, ts_ms: int | None = None) -> dict[str, Any]:
             metrics = update_knee_extension(rom_deg, state, params, ts_ms=ts_ms)
             metrics["alertas"] = _translate_alerts(metrics.get("alerts", []))
             # remove os códigos para não vazar pro paciente

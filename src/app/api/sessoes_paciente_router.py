@@ -15,9 +15,7 @@ from app.services.sessoes_paciente_service import (
 sessoes_paciente_router = APIRouter(prefix="/pacientes", tags=["Sessões do Paciente"])
 
 
-@sessoes_paciente_router.post(
-    "/{patient_id}/sessions", response_model=SessaoOut, status_code=status.HTTP_201_CREATED
-)
+@sessoes_paciente_router.post("/{patient_id}/sessions", response_model=SessaoOut, status_code=status.HTTP_201_CREATED)
 def create_patient_session(
     patient_id: str,
     payload: SessaoCreate,

@@ -44,12 +44,7 @@ def get_exercise(exercise_id: int, db: DBSession = Depends(get_db)):
 
 
 @exercicios_router.put("/{exercise_id}", response_model=ExercicioOut)
-def update_exercise(
-    exercise_id: int,
-    payload: ExercicioUpdate,
-    db: DBSession = Depends(get_db),
-    _=Depends(exigir_permissao("PRO")),
-):
+def update_exercise(exercise_id: int, payload: ExercicioUpdate, db: DBSession = Depends(get_db), _=Depends(exigir_permissao("PRO")),):
     ex = db.execute(select(Exercicios).where(Exercicios.id == exercise_id)).scalar_one_or_none()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercício não encontrado.")
@@ -70,11 +65,7 @@ def update_exercise(
 
 
 @exercicios_router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_exercise(
-    exercise_id: int,
-    db: DBSession = Depends(get_db),
-    _=Depends(exigir_permissao("PRO")),
-):
+def delete_exercise(exercise_id: int, db: DBSession = Depends(get_db), _=Depends(exigir_permissao("PRO")),):
     ex = db.execute(select(Exercicios).where(Exercicios.id == exercise_id)).scalar_one_or_none()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercício não encontrado.")

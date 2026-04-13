@@ -31,7 +31,7 @@ from app.services.sessoes_paciente_service import create_session_from_assignment
 prescricoes_router = APIRouter(prefix="/prescricoes", tags=["Prescrições"])
 
 
-# -------- Exercise Configs --------
+# -------- Configs Exercícios --------
 
 
 @prescricoes_router.post("/configs", response_model=ExercicioConfigOut, status_code=status.HTTP_201_CREATED)
@@ -161,14 +161,8 @@ def update_assignment_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@prescricoes_router.post(
-    "/{assignment_id}/sessions", response_model=SessaoOut, status_code=status.HTTP_201_CREATED
-)
-def create_session_from_assignment_endpoint(
-    assignment_id: int,
-    db: DBSession = Depends(get_db),
-    user: Usuario = Depends(get_usuario_atual),
-):
+@prescricoes_router.post("/{assignment_id}/sessions", response_model=SessaoOut, status_code=status.HTTP_201_CREATED)
+def create_session_from_assignment_endpoint(assignment_id: int, db: DBSession = Depends(get_db), user: Usuario = Depends(get_usuario_atual),):
     try:
         return create_session_from_assignment(db, user, assignment_id)
     except NotFoundError as e:

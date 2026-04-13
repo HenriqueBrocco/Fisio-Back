@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
-from app.models.sessao import Sessoes as SessionModel
-from app.models.sessao import ResumoSessao as SessionSummaryModel
+from app.models.sessao import Sessoes as SessoesModel
+from app.models.sessao import ResumoSessao as ResumoSessaoModel
 from app.models.usuario import Usuario
 
 
@@ -18,7 +18,7 @@ class SessionNotFoundError(Exception):
     pass
 
 
-def ensure_session_access(user: Usuario, sess: SessionModel, db: DBSession) -> None:
+def ensure_session_access(user: Usuario, sess: SessoesModel, db: DBSession) -> None:
     if user.perfil == "PATIENT":
         if sess.paciente_usuario_id != user.id:
             raise SessionAccessError("Sem permissão para esta sessão.")
@@ -30,16 +30,16 @@ def ensure_session_access(user: Usuario, sess: SessionModel, db: DBSession) -> N
         raise SessionAccessError("Sem permissão para esta sessão.")
 
 
-def get_session(db: DBSession, session_id: str) -> SessionModel:
-    s = db.execute(select(SessionModel).where(SessionModel.id == session_id)).scalar_one_or_none()
+def get_session(db: DBSession, session_id: str) -> SessoesModel:
+    s = db.execute(select(SessoesModel).where(SessoesModel.id == session_id)).scalar_one_or_none()
     if not s:
         raise SessionNotFoundError("Sessão não encontrada.")
     return s
 
 
-def start_session(db: DBSession, user: Usuario, session_id: str) -> SessionModel:
+def start_session(db: DBSession, user: Usuario, session_id: str) -> SessoesModel:
     s = get_session(db, session_id)
-    ensure_session_access(user, s)
+    ensure_session_access(user, s, db)
 
     if s.status == "CREATED":
         s.status = "RUNNING"
@@ -51,9 +51,9 @@ def start_session(db: DBSession, user: Usuario, session_id: str) -> SessionModel
     return s
 
 
-def finish_session(db: DBSession, user: Usuario, session_id: str) -> SessionModel:
+def finish_session(db: DBSession, user: Usuario, session_id: str) -> SessoesModel:
     s = get_session(db, session_id)
-    ensure_session_access(user, s)
+    ensure_session_access(user, s, db)
 
     if s.status != "FINISHED":
         s.status = "FINISHED"
@@ -73,13 +73,11 @@ def upsert_summary(
     rom: float,
     cadence: float | None,
     alerts: list,
-) -> SessionSummaryModel:
+) -> ResumoSessaoModel:
     s = get_session(db, session_id)
     ensure_session_access(user, s)
 
-    summary = db.execute(
-        select(SessionSummaryModel).where(SessionSummaryModel.sessao_id == session_id)
-    ).scalar_one_or_none()
+    summary = db.execute(select(ResumoSessaoModel).where(ResumoSessaoModel.sessao_id == session_id)).scalar_one_or_none()
 
     if summary:
         summary.repeticoes = reps
@@ -87,12 +85,12 @@ def upsert_summary(
         summary.cadencia = cadence
         summary.alertas = alerts
     else:
-        summary = SessionSummaryModel(
-            session_id=session_id,
-            reps=reps,
-            rom=rom,
-            cadence=cadence,
-            alerts=alerts,
+        summary = ResumoSessaoModel(
+            sessao_id=session_id,
+            repeticoes=reps,
+            adm=rom,
+            cadencia=cadence,
+            alertas=alerts,
         )
         db.add(summary)
 
@@ -101,12 +99,12 @@ def upsert_summary(
     return summary
 
 
-def get_summary(db: DBSession, user: Usuario, session_id: str) -> SessionSummaryModel:
+def get_summary(db: DBSession, user: Usuario, session_id: str) -> ResumoSessaoModel:
     s = get_session(db, session_id)
     ensure_session_access(user, s)
 
     summary = db.execute(
-        select(SessionSummaryModel).where(SessionSummaryModel.sessao_id == session_id)
+        select(ResumoSessaoModel).where(ResumoSessaoModel.sessao_id == session_id)
     ).scalar_one_or_none()
     if not summary:
         raise SessionNotFoundError("Resumo não encontrado.")
@@ -121,18 +119,16 @@ def finalize_session(
     rom: float | None,
     cadence: float | None,
     alerts: list | None,
-) -> SessionModel:
+) -> SessoesModel:
     s = get_session(db, session_id)
-    ensure_session_access(user, s)
+    ensure_session_access(user, s, db)
 
     has_any = any(v is not None for v in [reps, rom, cadence, alerts])
     if has_any:
-        summary = db.execute(
-            select(SessionSummaryModel).where(SessionSummaryModel.sessao_id == session_id)
-        ).scalar_one_or_none()
+        summary = db.execute(select(ResumoSessaoModel).where(ResumoSessaoModel.sessao_id == session_id)).scalar_one_or_none()
         if not summary:
-            summary = SessionSummaryModel(
-                session_id=session_id, reps=0, rom=0.0, cadence=None, alerts=[]
+            summary = ResumoSessaoModel(
+                sessao_id=session_id, repeticoes=0, adm=0.0, cadencia=None, alertas=[]
             )
             db.add(summary)
 

@@ -13,23 +13,11 @@ from app.schemas.sessao import (
 from app.services.sessoes_service import (
     SessionAccessError,
     SessionNotFoundError,
-)
-from app.services.sessoes_service import (
     finalize_session as svc_finalize_session,
-)
-from app.services.sessoes_service import (
     finish_session as svc_finish_session,
-)
-from app.services.sessoes_service import (
     get_session as svc_get_session,
-)
-from app.services.sessoes_service import (
     get_summary as svc_get_summary,
-)
-from app.services.sessoes_service import (
     start_session as svc_start_session,
-)
-from app.services.sessoes_service import (
     upsert_summary as svc_upsert_summary,
 )
 
@@ -37,11 +25,7 @@ sessoes_router = APIRouter(prefix="/sessoes", tags=["Sessões"])
 
 
 @sessoes_router.get("/{session_id}", response_model=SessaoOut)
-def get_session(
-    session_id: str,
-    db: DBSession = Depends(get_db),
-    user: Usuario = Depends(get_usuario_atual),
-):
+def get_session(session_id: str, db: DBSession = Depends(get_db), user: Usuario = Depends(get_usuario_atual),):
     try:
         sess = svc_get_session(db, session_id)
         # valida permissão (mantendo o get_session do service "puro")
@@ -82,11 +66,7 @@ def finish_session(
         raise HTTPException(status_code=403, detail=str(e))
 
 
-@sessoes_router.post(
-    "/{session_id}/summary",
-    response_model=ResumoSessaoOut,
-    status_code=status.HTTP_201_CREATED,
-)
+@sessoes_router.post("/{session_id}/summary", response_model=ResumoSessaoOut, status_code=status.HTTP_201_CREATED,)
 def upsert_session_summary(
     session_id: str,
     payload: ResumoSessaoIn,
